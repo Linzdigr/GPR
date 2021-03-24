@@ -5,7 +5,7 @@ OBJ = main.o mcp4725.o
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-gauge: $(OBJ)
+gpr: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 .PHONY: clean
