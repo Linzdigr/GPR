@@ -33,7 +33,7 @@ void triangleMode(struct mcp4725 *dac, unsigned int freq) {
   float step_hold_us = (period / total_steps) * 1e6;
   float step_val = (MAX_LO_DRIVE_V / (total_steps / 2));
 
-	do {
+  do {
     if(val >= MAX_LO_DRIVE_V) {
       val -= step_val;
     } else {
@@ -42,5 +42,5 @@ void triangleMode(struct mcp4725 *dac, unsigned int freq) {
     mcp4725_setvolts(&dac, val);
 
     usleep(step_hold_us);
-	} while (1);
+  } while (1);
 }
