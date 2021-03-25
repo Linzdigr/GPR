@@ -12,7 +12,7 @@ typedef enum
   mcp4725_addr_0x3 = 0b01100011,
   mcp4725_addr_0x4 = 0b01100100,
   mcp4725_addr_0x5 = 0b01100101,
-  mcp4725_addr_0x6 = 0b01100110,
+  mcp4725_addr_0x60 = 0b01100000,
   mcp4725_addr_0x7 = 0b01100111
 } mcp4725_addr_t;
 
@@ -53,6 +53,8 @@ void mcp4725_write_DAC_and_EEPROM(mcp4725_t *device, uint16_t value);
 
 void mcp4725_set_powerdown_impedance(mcp4725_t *device, mcp4725_pwrd_md_t impedance);
 
-int i2c_tx(mcp4725_t *device, uint8_t *buffer, uint8_t count);
+int i2c_tx(mcp4725_t *device, uint8_t *buffer, int count);
+
+void mcp4725_close(mcp4725_t *device);
 
 #endif /* MCP4725_H_ */
