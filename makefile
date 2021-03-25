@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I.
+CFLAGS=-I. -O3
 OBJ = main.o mcp4725.o
 
 %.o: %.c $(DEPS)

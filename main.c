@@ -10,7 +10,7 @@
 
 void triangleMode(struct mcp4725 dac, unsigned int freq) {
   printf ("Triangle wave mode selected\n");
-  float val = 0.0;
+
   float period = (1.0 / (float)freq);
   unsigned int total_steps = (period * (float)DAC_SAMPLES_HZ);
   float step_hold_us = (period / total_steps) * 1e6;
@@ -18,7 +18,7 @@ void triangleMode(struct mcp4725 dac, unsigned int freq) {
 
   unsigned int waveform [total_steps];
 
-  printf ("\nPeriod: %fµs\nTotal steps: %f\nStep hold: %fµs\nStep value: %fV\n\n", period, total_steps, step_hold_us, step_val);
+  printf ("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\nStep value: %fV\n\n", period, total_steps, step_hold_us, step_val);
 
   for(unsigned short int i = 0; i < total_steps; i++) {
     if((waveform[i] + step_val) > MAX_LO_DRIVE || (waveform[i] + step_val) < 0.0) {
@@ -29,8 +29,10 @@ void triangleMode(struct mcp4725 dac, unsigned int freq) {
   }
 
   do {
-    mcp4725_setvolts(&dac, val);
-    usleep(step_hold_us);
+    for(unsigned short int i = 0; i < total_steps; i++) {
+      mcp4725_setvolts(&dac, waveform[i]);
+      usleep(step_hold_us);
+    }
   } while (1);
 }
 
