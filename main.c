@@ -20,12 +20,16 @@ void triangleMode(struct mcp4725 dac, unsigned int freq) {
 
   printf ("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\nStep value: %fV\n\n", period, total_steps, step_hold_us, step_val);
 
+  float last_val = 0.0;
+
   for(unsigned short int i = 0; i < total_steps; i++) {
-    if((waveform[i] + step_val) > MAX_LO_DRIVE || (waveform[i] + step_val) < 0.0) {
+    if((last_val + step_val) > MAX_LO_DRIVE || (last_val + step_val) < 0.0) {
       step_val *= -1.0;
     }
 
-    waveform[i] += step_val;
+    waveform[i] = last_val + step_val;
+
+    last_val = waveform[i];
   }
 
   do {
