@@ -23,11 +23,11 @@ void triangleMode(mcp4725_t *dac, unsigned int freq) {
   float last_val = 0.0;
 
   for(unsigned short int i = 0; i < total_steps; i++) {
-    if((last_val + step_val) > MAX_LO_DRIVE || (last_val + step_val) < 0.0) {
+    if((unsigned int)(last_val + step_val) > MAX_LO_DRIVE || (unsigned int)(last_val + step_val) < 0.0) {
       step_val *= -1.0;
     }
 
-    waveform[i] = last_val + step_val;
+    waveform[i] = (unsigned int)(last_val + step_val);
 
     last_val = waveform[i];
   }
@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 
   mcp4725_init(&lodrive, mcp4725_addr_0x6, mcp4725_pwrd_md_NORMAL, 4095, 4095);
 
-  printf ("DAC INIT OK.\n");
+  printf("DAC INIT OK.\n");
   triangleMode(&lodrive, 100);
       
   mcp4725_close(&lodrive);
