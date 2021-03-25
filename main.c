@@ -5,28 +5,31 @@
 #include "mcp4725.h"
 #include <time.h>
 
-#define MAX_LO_DRIVE_V      25
-#define DAC_SAMPLES_HZ      300000
+#define MAX_LO_DRIVE      4095
+#define DAC_SAMPLES_HZ      30000
 
 void triangleMode(struct mcp4725 dac, unsigned int freq) {
   printf ("Triangle wave mode selected\n");
   float val = 0.0;
   float period = (1.0 / (float)freq);
-  float total_steps = (period * (float)DAC_SAMPLES_HZ);
+  unsigned int total_steps = (period * (float)DAC_SAMPLES_HZ);
   float step_hold_us = (period / total_steps) * 1e6;
-  float step_val = ((float)MAX_LO_DRIVE_V / (total_steps / 2.0));
+  float step_val = ((float)MAX_LO_DRIVE / (float)((float)total_steps / 2.0));
+
+  unsigned int waveform [total_steps];
 
   printf ("\nPeriod: %fµs\nTotal steps: %f\nStep hold: %fµs\nStep value: %fV\n\n", period, total_steps, step_hold_us, step_val);
 
-  do {
-    if(val >= MAX_LO_DRIVE_V || val <= 0.0) {
+  for(unsigned short int i = 0; i < total_steps; i++) {
+    if((waveform[i] + step_val) > MAX_LO_DRIVE || (waveform[i] + step_val) < 0.0) {
       step_val *= -1.0;
     }
 
-    val += step_val;
+    waveform[i] += step_val;
+  }
 
+  do {
     mcp4725_setvolts(&dac, val);
-
     usleep(step_hold_us);
   } while (1);
 }
@@ -35,7 +38,7 @@ int main(int argc, char **argv) {
   printf ("STARTING...\n");
   struct mcp4725 lodrive = {
     .i2c_id = 0x60,
-    .fullscale = MAX_LO_DRIVE_V
+    .fullscale = MAX_LO_DRIVE
   };
 
   if(getuid()) {
