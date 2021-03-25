@@ -1,29 +1,58 @@
-/*
-    Default I2C bus speed is 100,000 - to up it to 400,000 change the line in config.txt
+#ifndef MCP4725_H_
+#define MCP4725_H_
+#include <stdint.h>
 
-    dtparam=i2c_arm=on,i2c_arm_baudrate=400000
+typedef uint8_t (*u8_fptr_u8_pu8_u8_t)(uint8_t, const uint8_t *, uint8_t);
 
-*/
-struct mcp4725 {
-    int i2c_id;                 // I2C buss ID
-    int i2c_file;               // Internal use
-    char error[80];             // The last error returned
-    unsigned char buffer[6];    // I/O buffer - set by read command, used internally by write command
-    int lastvalue;              // The last value (12 bit int) sent to the DAC
-    float fullscale;            // The full scale voltage of the DAC - set before using voltage.
-    float voltage;              // The output voltage set by mcp4725_setvolts()
-};
+typedef enum
+{
+  mcp4725_addr_0x0 = 0b01100000,
+  mcp4725_addr_0x1 = 0b01100001,
+  mcp4725_addr_0x2 = 0b01100010,
+  mcp4725_addr_0x3 = 0b01100011,
+  mcp4725_addr_0x4 = 0b01100100,
+  mcp4725_addr_0x5 = 0b01100101,
+  mcp4725_addr_0x6 = 0b01100110,
+  mcp4725_addr_0x7 = 0b01100111
+} mcp4725_addr_t;
 
-enum mcp4725_mode {                 // The mode for the mcp4725 - 
-    MODE_NORMAL = 0x00,           // Outputs a voltage
-    MODE_1K = 0x10,               // 0V output, 1K resistor to ground
-    MODE_100K = 0x20,             // 0V output, 100K resistor to ground
-    MODE_500K = 0x30              // 0V output, 500K resistor to ground
-};
+typedef enum
+{
+  mcp4725_cmd_FAST_MODE = 0x00,
+  mcp4725_cmd_WRITE_DAC = 0x40,
+  mcp4725_cmd_WRITE_DAC_AND_EEPROM = 0x60
+} mcp4725_cmd_t;
 
-int mcp4725_init(struct mcp4725 *device);
-void mcp4725_close(struct mcp4725 *device);
-int mcp4725_write(struct mcp4725 *device, unsigned short int output);
-int mcp4725_setvolts(struct mcp4725 *device, float volts);
-int mcp4725_setmode(struct mcp4725 *device, enum mcp4725_mode mode);
-int writebuffer(struct mcp4725 *device, int count);
+typedef enum
+{
+  mcp4725_pwrd_md_NORMAL = 0x00,
+  mcp4725_pwrd_md_1k_ohm = 0x01,
+  mcp4725_pwrd_md_100k_ohm = 0x02,
+  mcp4725_pwrd_md_500k_ohm = 0x03
+} mcp4725_pwrd_md_t;
+
+// mcp4725 class
+typedef struct
+{
+  int32_t i2c_file;
+  mcp4725_addr_t i2c_address;
+  mcp4725_pwrd_md_t power_down_mode;
+  uint16_t dac_value;
+  uint16_t eemprom_value;
+} mcp4725_t;
+
+int mcp4725_init(mcp4725_t *device,
+                  mcp4725_addr_t address,
+                  mcp4725_pwrd_md_t power_down_mode,
+                  uint16_t dac_value,
+                  uint16_t eemprom_value);
+
+void mcp4725_write_DAC(mcp4725_t *device, uint16_t value);
+
+void mcp4725_write_DAC_and_EEPROM(mcp4725_t *device, uint16_t value);
+
+void mcp4725_set_powerdown_impedance(mcp4725_t *device, mcp4725_pwrd_md_t impedance);
+
+int i2c_tx(mcp4725_t *device, uint8_t *buffer, uint8_t count);
+
+#endif /* MCP4725_H_ */

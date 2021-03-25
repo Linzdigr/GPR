@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-#include "mcp4725.h"
 #include <time.h>
+#include "mcp4725.h"
 
 #define MAX_LO_DRIVE      4095
 #define DAC_SAMPLES_HZ      30000
 
-void triangleMode(struct mcp4725 dac, unsigned int freq) {
+void triangleMode(mcp4725_t *dac, unsigned int freq) {
   printf ("Triangle wave mode selected\n");
 
   float period = (1.0 / (float)freq);
@@ -34,7 +34,7 @@ void triangleMode(struct mcp4725 dac, unsigned int freq) {
 
   do {
     for(unsigned short int i = 0; i < total_steps; i++) {
-      mcp4725_setvolts(&dac, waveform[i]);
+      mcp4725_write_DAC(dac, waveform[i]);
       usleep(step_hold_us);
     }
   } while (1);
@@ -42,19 +42,17 @@ void triangleMode(struct mcp4725 dac, unsigned int freq) {
 
 int main(int argc, char **argv) {
   printf ("STARTING...\n");
-  struct mcp4725 lodrive = {
-    .i2c_id = 0x60,
-    .fullscale = MAX_LO_DRIVE
-  };
+  mcp4725_t lodrive;
 
   if(getuid()) {
     printf ("This program needs to be run as root.\n");
     exit (1);
   }
 
-  mcp4725_init(&lodrive);
+  mcp4725_init(&lodrive, mcp4725_addr_0x6, mcp4725_pwrd_md_NORMAL, 4095, 4095);
+
   printf ("DAC INIT OK.\n");
-  triangleMode(lodrive, 100);
+  triangleMode(&lodrive, 100);
       
   mcp4725_close(&lodrive);
 }

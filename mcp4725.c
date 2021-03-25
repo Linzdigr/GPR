@@ -1,90 +1,98 @@
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>				//Needed for I2C port
-#include <fcntl.h>				//Needed for I2C port
-#include <sys/ioctl.h>			//Needed for I2C port
-#include <linux/i2c-dev.h>		//Needed for I2C port
 #include "mcp4725.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>        //Needed for I2C port
+#include <fcntl.h>         //Needed for I2C port (open)
+#include <sys/ioctl.h>     //Needed for I2C port
+#include <linux/i2c-dev.h> //Needed for I2C port
 
-int mcp4725_init(struct mcp4725 *device)
+int i2c_tx(mcp4725_t *device, uint8_t *buffer, uint8_t count) {
+  if(write(device->i2c_file, buffer, count) != count) {
+    printf("Error when sending to i2c bus.\n");
+    return 1;
+  }
+  return 0;
+}
+
+int mcp4725_init(mcp4725_t *device,
+                  mcp4725_addr_t address,
+                  mcp4725_pwrd_md_t power_down_mode,
+                  uint16_t dac_value,
+                  uint16_t eemprom_value)
 {
-    device->error[0] = '\0';
-    memset(&device->buffer, 0, 6*sizeof(unsigned char));
+  uint8_t temp[6];
 
-	char *filename = (char*)"/dev/i2c-1";
-	if ((device->i2c_file = open(filename, O_RDWR)) < 0) {
-		strcpy(device->error, "Failed to open the i2c bus");
-		return 1;
-	}
-	
-	if (ioctl(device->i2c_file, I2C_SLAVE, device->i2c_id) < 0) {
-		strcpy(device->error, "Failed to acquire bus access and/or talk to slave");
-		return 1;
-	}
-	return 0;
+  // update device attributes
+  device->i2c_address = address;
+  device->power_down_mode = power_down_mode;
+  device->dac_value = dac_value;
+  device->eemprom_value = eemprom_value;
+
+  char *filename = (char*)"/dev/i2c-1";
+
+  if ((device->i2c_file = open(filename, O_RDWR)) < 0) {
+    printf("Failed to open i2c bus.\n");
+    return 1;
+  }
+
+  if (ioctl(device->i2c_file, I2C_SLAVE, device->i2c_address) < 0) {
+    printf("Failed to acquire bus access and/or talk to slave.\n");
+    return 1;
+  }
+
+  // setting up data set to be sent to the device
+  temp[0] = mcp4725_cmd_FAST_MODE | (power_down_mode << 1);
+  temp[1] = (uint8_t)(dac_value >> 4);
+  temp[2] = (uint8_t)(dac_value << 4);
+  temp[3] = temp[0];
+  temp[4] = temp[1];
+  temp[5] = temp[2];
+
+  // writing to device
+  i2c_tx(device, temp, 6);
 }
 
-/* Write a short int to the DAC 
-
-    0 - 4095 : 0 to FS.
-
-    Also turns on the output - MODE_NORMAL
-*/
-int mcp4725_write(struct mcp4725 *device, unsigned short int output)
+void mcp4725_write_DAC(mcp4725_t *device, uint16_t value)
 {
-    device->buffer[1] = output & 0x00ff;
-    device->buffer[0] = (output & 0x0f00)>>8;
-    device->error[0] = '\0';
+  uint8_t temp[3];
 
-    return writebuffer(device, 2);
+  device->dac_value = value;
+
+  // setting up data set
+  temp[0] = mcp4725_cmd_FAST_MODE | (device->power_down_mode << 1);
+  temp[1] = (uint8_t)(value >> 4);
+  temp[2] = (uint8_t)(value << 4);
+
+  i2c_tx(device, temp, 3);
 }
 
-/* Write raw buffer to the DAC */
- int writebuffer(struct mcp4725 *device, int count)
- {
-//    printf ("buf[1] = %02x, buf[0] = %02x\n", device->buffer[1], device->buffer[0]);
-
- 	if (write(device->i2c_file, device->buffer, count) != count) {
-		strcpy(device->error, "Failed to write to the i2c bus");
-        return 1;
-	}
-    return 0;
-}
-
-void mcp4725_close(struct mcp4725 *device)
+void mcp4725_write_DAC_and_EEPROM(mcp4725_t *device, uint16_t value)
 {
-    close(device->i2c_file);
-    device->i2c_file = -1;
+  uint8_t temp[6];
+
+  device->dac_value = value;
+  device->eemprom_value = value;
+
+  // setting up data set to be sent to the device
+  temp[0] = mcp4725_cmd_WRITE_DAC_AND_EEPROM | (device->power_down_mode << 1);
+  temp[1] = (uint8_t)(value >> 4);
+  temp[2] = (uint8_t)(value << 4);
+  temp[3] = temp[0];
+  temp[4] = temp[1];
+  temp[5] = temp[2];
+
+  // writing to the device
+  i2c_tx(device, temp, 6);
 }
 
-/* Write a voltage to the DAC - mcp4725.fullscale has to be set for this to work */
-int mcp4725_setvolts(struct mcp4725 *device, float volts)
+void mcp4725_set_powerdown_impedance(mcp4725_t *device, mcp4725_pwrd_md_t impedance)
 {
-    unsigned short int adcvalue;
-
-    if (!device->fullscale) {
-        strcpy (device->error, "Full scale value not set");
-        return 1;
-    }
-
-    if (volts > device->fullscale || volts < 0) {
-        strcpy(device->error, "Voltage out of range.");
-        return 1;
-    }
-
-    adcvalue = (unsigned short int)((volts / device->fullscale) * 4095);
-    return (mcp4725_write(device, adcvalue));
+  device->power_down_mode = impedance;
 }
 
-/* Sets the output mode 
-
-    MODE_NORMAL : Outputs a voltage
-    MODE_1K     : 0V output, 1K resistor to ground
-    MODE_100K   : 0V output, 100K resistor to ground
-    MODE_500K   : 0V output, 500K resistor to ground
-*/
-int mcp4725_setmode(struct mcp4725 *device, enum mcp4725_mode mode)
+void mcp4725_close(mcp4725_t *device, mcp4725_pwrd_md_t impedance)
 {
-    device->buffer[0] = (device->buffer[0] & 0xcf) | mode;
-    return writebuffer(device, 2);
+  close(device->i2c_file);
+  device->i2c_file = -1;
 }
+
