@@ -1,4 +1,4 @@
-CC=gcc
+CC=g++
 CFLAGS=-I. -O3
 OBJ = main.o mcp4725.o
 
