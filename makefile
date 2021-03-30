@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-I. -O3
-OBJ = main.o mcp4725.o
+OBJ = main.o GPR.o mcp4921.o waveeform.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)

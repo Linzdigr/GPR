@@ -3,6 +3,9 @@
     "iostream": "cpp",
     "ostream": "cpp",
     "chrono": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "*.tcc": "c",
+    "fstream": "c",
+    "system_error": "cpp"
   }
 }

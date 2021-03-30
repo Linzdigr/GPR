@@ -9,7 +9,7 @@ using namespace std;
 
 #include "GPR.h"
 #include "waveform.h"
-#include "mcp4725.h"
+#include "MCP4921.h"
 
 #define DAC_SAMPLING_RATE_S     30000
 
@@ -52,7 +52,7 @@ void GPR::waveformGenerator() {
 
   printf("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\n\n", this->sweep_length, total_steps, step_hold_us);
 
-  Waveform::ramp(wf, total_steps, 0, MCP4921::MAX_VAL);
+  Waveform::ramp(wf, total_steps, 0, MCP4921::MAX_DAC_VALUE);
 
   do {
     for(unsigned short int i = 0; i < total_steps; i++) {
@@ -61,8 +61,6 @@ void GPR::waveformGenerator() {
       usleep(step_hold_us);
     }
   } while(1);
-
-  mcp4725_close(&lodrive);
 }
 
 void processFFT() {
