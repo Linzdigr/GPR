@@ -59,8 +59,8 @@ void GPR::waveformGenerator() {
   try {
     dac = new MCP4921();
   }
-  catch(const std::exception& e) {
-    std::cerr << e.what() << '\n';
+  catch(const string &e) {
+    cerr << e << endl;
   }
   
   uint16_t *wf = new uint16_t [total_steps];
