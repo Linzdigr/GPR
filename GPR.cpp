@@ -18,7 +18,7 @@ using namespace std;
 GPR* GPR::_instance = nullptr;
 
 GPR::GPR(float freq_low, float freq_high, float tsweep)
-:f_low(freq_low), f_hi(freq_high), relevant_time(false) {
+:f_low(freq_low), f_hi(freq_high), relevant_time(false), sweep_length(tsweep) {
   cout << "Creating 1 GPR" << endl;
 
   this->bw = this->f_low - this->f_hi;
