@@ -34,7 +34,7 @@ class MCP4921 {
             bool buffered_output =false,
             bool gain2x = false,
             uint8_t spi_mode = SPI_MODE_0,
-            uint32_t spi_speed = MCP4921::MAX_SPI_SPEED,
+            uint32_t spi_hz = MCP4921::MAX_SPI_SPEED,
             uint32_t spi_bits_per_word = 8,
             uint16_t spi_delay = 0
           );

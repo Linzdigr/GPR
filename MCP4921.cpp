@@ -14,7 +14,7 @@ MCP4921::MCP4921(uint16_t val,
     bool buffered_output,
     bool gain2x,
     uint8_t spi_mode,
-    uint32_t spi_speed,
+    uint32_t spi_hz,
     uint32_t spi_bits_per_word,
     uint16_t spi_delay) {
   if(val > MAX_DAC_VALUE) {
@@ -22,9 +22,11 @@ MCP4921::MCP4921(uint16_t val,
     val = MCP4921::MAX_DAC_VALUE;
   }
 
-  if(spi_speed > MCP4921::MAX_SPI_SPEED) {
-    spi_speed = MCP4921::MAX_SPI_SPEED;
-  }  
+  if(spi_hz > MCP4921::MAX_SPI_SPEED) {
+    spi_hz = MCP4921::MAX_SPI_SPEED;
+  }
+
+  this->spi_speed = spi_hz;
 
   this->value = val;
 
