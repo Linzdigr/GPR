@@ -54,7 +54,15 @@ void GPR::waveformGenerator() {
 
   printf("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\n\n", this->sweep_length, total_steps, step_hold_us);
 
-  MCP4921 *dac = new MCP4921();
+  MCP4921 *dac = nullptr;
+
+  try {
+    dac = new MCP4921();
+  }
+  catch(const std::exception& e) {
+    std::cerr << e.what() << '\n';
+  }
+  
   uint16_t *wf = new uint16_t [total_steps];
 
   Waveform::ramp(wf, total_steps, 0, MCP4921::MAX_DAC_VALUE);
