@@ -8,10 +8,12 @@
 using namespace std;
 
 #include "GPR.h"
-#include "waveforms.h"
 #include "MCP4921.h"
+#include "waveforms.h"
 
 #define DAC_SAMPLING_RATE_S     30000
+
+GPR* GPR::_instance = nullptr;
 
 GPR::GPR(float freq_low, float freq_high, float tsweep)
 :f_low(freq_low), f_hi(freq_high), relevant_time(false) {
@@ -31,7 +33,7 @@ GPR* GPR::getInstance(const float freq_start, const float freq_stop, const float
    * This is a safer way to create an instance. instance = new Singleton is
    * dangerous in case two instance threads wants to access at the same time
    */
-  if (GPR::_instance == nullptr) {
+  if(GPR::_instance == nullptr) {
     GPR::_instance = new GPR(freq_start, freq_stop, tsweep);
   }
 
