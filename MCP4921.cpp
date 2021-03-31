@@ -10,11 +10,11 @@
 
 #include "MCP4921.h"
 
-MCP4921::MCP4921(uint16_t val = MCP4921::MIN_DAC_VALUE,
-    uint32_t spi_speed = MCP4921::DEFAULT_SPI_SPEED,
-    bool channel_b = false,
-    bool buffered_output =false,
-    bool gain2x = false) {
+MCP4921::MCP4921(uint16_t val,
+    uint32_t spi_speed,
+    bool channel_b,
+    bool buffered_output,
+    bool gain2x) {
   if(val > MAX_DAC_VALUE) {
     cout << "Requested DAC value is beyong max limit of " << MCP4921::MAX_DAC_VALUE << "! Setting to the max admissible value." << endl;
     val = MCP4921::MAX_DAC_VALUE;
@@ -72,6 +72,7 @@ void MCP4921::setRawValue(uint16_t value) {
   }
 
   this->raw_buffer[0] = (this->dac_select | this->output_buffered | this->selected_gain) | value >> 8;
+  this->raw_buffer[1] = (uint8_t)(value);
 
   this->spi_tx();
 }

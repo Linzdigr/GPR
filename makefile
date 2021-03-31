@@ -1,11 +1,11 @@
 CC=g++
-CFLAGS=-I. -O3
-OBJ = main.o GPR.o mcp4921.o waveeform.o
+CFLAGS=-I. -lpthread
+OBJ = main.o GPR.o MCP4921.o waveforms.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-gpr: $(OBJ)
+nalláma: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 .PHONY: clean

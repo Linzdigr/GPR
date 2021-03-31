@@ -8,7 +8,7 @@
 using namespace std;
 
 #include "GPR.h"
-#include "waveform.h"
+#include "waveforms.h"
 #include "MCP4921.h"
 
 #define DAC_SAMPLING_RATE_S     30000
@@ -19,22 +19,23 @@ GPR::GPR(float freq_low, float freq_high, float tsweep)
 
   this->bw = this->f_low - this->f_hi;
 
-  thread thread_dac(waveformGenerator);
-  thread thread_fft(processFFT);
+  thread thread_dac(&GPR::waveformGenerator, this);
+  thread thread_fft(&GPR::processFFT, this);
 
   thread_dac.join();
   thread_fft.join();
 }
 
-GPR* GPR::getInstance(const float freq_start = 1200.0F, const float freq_stop = 2900.0F, const float tsweep = 10.0F) {
-    /**
-     * This is a safer way to create an instance. instance = new Singleton is
-     * dangerous in case two instance threads wants to access at the same time
-     */
-    if(GPR::_singleton == nullptr){
-        GPR::_singleton = new GPR(freq_start, freq_stop, tsweep);
-    }
-    return GPR::_singleton;
+GPR* GPR::getInstance(const float freq_start, const float freq_stop, const float tsweep) {
+  /**
+   * This is a safer way to create an instance. instance = new Singleton is
+   * dangerous in case two instance threads wants to access at the same time
+   */
+  if (GPR::_instance == nullptr) {
+    GPR::_instance = new GPR(freq_start, freq_stop, tsweep);
+  }
+
+  return GPR::_instance;
 }
 
 float GPR::beat2Dist(float f) {
@@ -63,9 +64,9 @@ void GPR::waveformGenerator() {
   } while(1);
 }
 
-void processFFT() {
-  if(is_POI) {
-
+void GPR::processFFT() {
+  if(this->relevant_time) {
+    // Do FFT stuff
   }
 }
 

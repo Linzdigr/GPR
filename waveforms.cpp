@@ -2,9 +2,9 @@
 
 using namespace std;
 
-#include "waveform.h"
+#include "waveforms.h"
 
-void Waveform::ramp(uint16_t *sink,  unsigned int points, double min, double max, float symmetry = 0.5F) {
+void Waveform::ramp(uint16_t *sink,  unsigned int points, double min, double max, float symmetry) {
   float last_val = 0.0;
   sink = new uint16_t [points];
   float step_val = ((float)max / (float)((float)points / 2.0));
