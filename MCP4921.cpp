@@ -33,27 +33,27 @@ MCP4921::MCP4921(uint16_t val,
   }
 
   if(ioctl(this->spi_fd, SPI_IOC_WR_MODE, SPI_MODE_0) < 0) {
-    throw "Could not set SPIMode (WR)...ioctl fail";
+    throw string("Could not set SPIMode (WR)...ioctl fail");
   }
 
   if (ioctl(this->spi_fd, SPI_IOC_RD_MODE, SPI_MODE_0) < 0) {
-    throw "Could not set SPIMode (RD)...ioctl fail";
+    throw string("Could not set SPIMode (RD)...ioctl fail");
   }
 
   if(ioctl(this->spi_fd, SPI_IOC_WR_BITS_PER_WORD, 8) < 0) {
-    throw "Could not set SPI bitsPerWord (WR)...ioctl fail";
+    throw string("Could not set SPI bitsPerWord (WR)...ioctl fail");
   }
 
   if(ioctl(this->spi_fd, SPI_IOC_RD_BITS_PER_WORD, 8) < 0) {
-    throw "Could not set SPI bitsPerWord(RD)...ioctl fail";
+    throw string("Could not set SPI bitsPerWord(RD)...ioctl fail");
   }
 
   if(ioctl(this->spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &spi_speed) < 0) {
-    throw "Could not set SPI speed (WR)...ioctl fail";
+    throw string("Could not set SPI speed (WR)...ioctl fail");
   }
 
   if(ioctl(this->spi_fd, SPI_IOC_RD_MAX_SPEED_HZ, &spi_speed) < 0) {
-    throw "Could not set SPI speed (RD)...ioctl fail";
+    throw string("Could not set SPI speed (RD)...ioctl fail");
   }
 
   // writing to device

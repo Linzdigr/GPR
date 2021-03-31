@@ -6,6 +6,7 @@
     "thread": "cpp",
     "*.tcc": "c",
     "fstream": "c",
-    "system_error": "cpp"
+    "system_error": "cpp",
+    "string": "cpp"
   }
 }
