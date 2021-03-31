@@ -69,9 +69,11 @@ MCP4921::MCP4921(uint16_t val,
 }
 
 int MCP4921::spi_tx() {
+  uint8_t rx_buf [16] = {0};
+
   struct spi_ioc_transfer tr = {
     .tx_buf = (unsigned long)this->raw_buffer,
-    .rx_buf = (unsigned long)this->raw_buffer,
+    .rx_buf = (unsigned long)rx_buf,
     .len = MCP4921::REGISTER_BYTE_SIZE,
     .speed_hz = this->spi_speed,
     .delay_usecs = this->spi_delay,
@@ -86,7 +88,7 @@ void MCP4921::setRawValue(uint16_t value) {
     value = MCP4921::MAX_DAC_VALUE;
   }
 
-  this->raw_buffer[0] = (this->dac_select | this->output_buffered | this->selected_gain) | value >> 12;
+  this->raw_buffer[0] = (this->dac_select | this->output_buffered | this->selected_gain) | value >> 8;
   this->raw_buffer[1] = (uint8_t)(value);
 
   this->spi_tx();
