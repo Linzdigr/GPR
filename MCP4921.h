@@ -1,6 +1,7 @@
 #ifndef MCP4921_H_
 #define MCP4921_H_
 #include <stdint.h>
+#include <linux/spi/spidev.h>
 
 #define DAC_SELECT_A          0x80
 #define DAC_SELECT_B          0x00
@@ -18,19 +19,27 @@ class MCP4921 {
     uint8_t dac_select;
     uint8_t output_buffered;
     uint8_t selected_gain;
+    uint8_t spi_mode;
+    uint32_t spi_speed;
+    uint8_t spi_bits_per_word;
+    uint16_t spi_delay;
     int spi_fd;
   public:
     static const uint16_t MIN_DAC_VALUE = 0;
     static const uint16_t MAX_DAC_VALUE = 4095;
-    static const uint32_t DEFAULT_SPI_SPEED = 20000000; // 20MHz
-    static const uint8_t REGISTER_BIT_SIZE = 16;
+    static const uint32_t MAX_SPI_SPEED = 2e7; // 20MHz
+    static const uint32_t REGISTER_BYTE_SIZE = 2;
     MCP4921(uint16_t val = MCP4921::MIN_DAC_VALUE,
-            uint32_t spi_speed = MCP4921::DEFAULT_SPI_SPEED,
             bool channel_b = false,
             bool buffered_output =false,
-            bool gain2x = false);
+            bool gain2x = false,
+            uint8_t spi_mode = SPI_MODE_0,
+            uint32_t spi_speed = MCP4921::MAX_SPI_SPEED,
+            uint32_t spi_bits_per_word = 8,
+            uint16_t spi_delay = 0
+          );
     void setRawValue(uint16_t value);
-    void spi_tx();
+    int spi_tx();
     ~MCP4921();
   };
 
