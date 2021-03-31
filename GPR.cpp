@@ -11,6 +11,8 @@ using namespace std;
 #include "MCP4921.h"
 #include "waveforms.h"
 
+#define SECOND_US               1e-6
+
 #define DAC_SAMPLING_RATE_S     30000
 
 GPR* GPR::_instance = nullptr;
@@ -47,18 +49,18 @@ float GPR::beat2Dist(float f) {
 void GPR::waveformGenerator() {
   cout << "GPR::waveformGenerator()" << endl;
 
-  uint16_t *wf;
-  MCP4921 *dac = new MCP4921();
-
   unsigned int total_steps = (this->sweep_length * (float)DAC_SAMPLING_RATE_S);
-  float step_hold_us = (this->sweep_length / total_steps) * 1e6;
+  float step_hold_us = (this->sweep_length / total_steps) / SECOND_US;
 
   printf("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\n\n", this->sweep_length, total_steps, step_hold_us);
+
+  MCP4921 *dac = new MCP4921();
+  uint16_t *wf = new uint16_t [total_steps];
 
   Waveform::ramp(wf, total_steps, 0, MCP4921::MAX_DAC_VALUE);
 
   do {
-    for(unsigned short int i = 0; i < total_steps; i++) {
+    for(unsigned int i = 0; i < total_steps; i++) {
       this->relevant_time = (total_steps / i >= 0.1 && total_steps / i <= 0.9);
       dac->setRawValue(wf[i]);
       usleep(step_hold_us);

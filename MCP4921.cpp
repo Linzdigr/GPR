@@ -78,6 +78,7 @@ void MCP4921::setRawValue(uint16_t value) {
 }
 
 MCP4921::~MCP4921() {
+  cout << "Detroying MCP4921" << endl;
   close(this->spi_fd);
   this->spi_fd = -1;
 }
