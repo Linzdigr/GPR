@@ -12,6 +12,9 @@
 #define OUTPUT_GAIN_1X        0x20
 #define OUTPUT_GAIN_2X        0x00
 
+#define OUTPUT_ACTIVE         0x10
+#define OUTPUT_INACTIVE       0x00
+
 class MCP4921 {
   private:
     uint8_t raw_buffer [2];
@@ -19,6 +22,7 @@ class MCP4921 {
     uint8_t dac_select;
     uint8_t output_buffered;
     uint8_t selected_gain;
+    uint8_t active_output;
     uint8_t spi_mode;
     uint32_t spi_speed;
     uint8_t spi_bits_per_word;
@@ -31,8 +35,9 @@ class MCP4921 {
     static const uint32_t REGISTER_BYTE_SIZE = 2;
     MCP4921(uint16_t val = MCP4921::MIN_DAC_VALUE,
             bool channel_b = false,
-            bool buffered_output =false,
+            bool buffered_output = false,
             bool gain2x = false,
+            bool active_output = true,
             uint8_t spi_mode = SPI_MODE_0,
             uint32_t spi_hz = MCP4921::MAX_SPI_SPEED,
             uint32_t spi_bits_per_word = 8,

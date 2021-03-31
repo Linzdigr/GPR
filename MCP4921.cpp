@@ -13,6 +13,7 @@ MCP4921::MCP4921(uint16_t val,
     bool channel_b,
     bool buffered_output,
     bool gain2x,
+    bool active_output,
     uint8_t spi_mode,
     uint32_t spi_hz,
     uint32_t spi_bits_per_word,
@@ -33,6 +34,7 @@ MCP4921::MCP4921(uint16_t val,
   this->dac_select = channel_b ? DAC_SELECT_B : DAC_SELECT_B;
   this->output_buffered = buffered_output ? BUFFERED_OUTPUT : UNBUFFERED_OUTPUT;
   this->selected_gain = gain2x ? OUTPUT_GAIN_2X : OUTPUT_GAIN_1X;
+  this->active_output = active_output ? OUTPUT_ACTIVE : OUTPUT_INACTIVE;
 
   const char *filename = (char*)"/dev/spidev0.0";
 
@@ -88,7 +90,7 @@ void MCP4921::setRawValue(uint16_t value) {
     value = MCP4921::MAX_DAC_VALUE;
   }
 
-  this->raw_buffer[0] = (this->dac_select | this->output_buffered | this->selected_gain) | value >> 8;
+  this->raw_buffer[0] = (this->dac_select | this->output_buffered | this->selected_gain | this->active_output) | value >> 8;
   this->raw_buffer[1] = (uint8_t)(value);
 
   this->spi_tx();
