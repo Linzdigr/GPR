@@ -8,7 +8,7 @@
 using namespace std;
 
 #include "GPR.h"
-#include "MCP4921.h"
+#include "MCP4921/MCP4921.h"
 #include "waveforms.h"
 
 #define SECOND_US               1e-6

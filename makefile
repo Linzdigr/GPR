@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-I. -lpthread
-OBJ = main.o GPR.o MCP4921.o waveforms.o
+OBJ = main.o GPR.o MCP4921/MCP4921.o waveforms.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
