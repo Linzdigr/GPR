@@ -50,4 +50,4 @@ Overclock will take effect on the next reboot:
 reboot # or sudo init 6
 ```
 
-*WARNING: Overclocking your CPU will generate much more heat from the CPU itself. You must have provided a heat dissipation system to your Raspberry Pi in order to prevent permanent damage!*
+**WARNING: Overclocking your CPU will generate much more heat from the CPU itself. You must have provided a heat dissipation system to your Raspberry Pi in order to prevent permanent damage!**
