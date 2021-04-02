@@ -1,6 +1,6 @@
 # GPR Project
 
-This project is intended to provided a way to see under the ground thanks to the FMCW radar technology.
+This C++ project is intended to provided a way to see under the ground thanks to the FMCW radar technology. It is based on [this conference](https://gpradar.eu/onewebmedia/TU1208_GPRforeducationaluse_November2017_FerraraChizhPietrelli.pdf).
 
 Two antennas are used (Rx & Tx).
 
