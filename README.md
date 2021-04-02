@@ -8,7 +8,7 @@ Tx will emmit a frequency changing over time repeatedly (sweep) in order to mix 
 
 ## Installing
 ```sh
-git clone https://github.com/Linzdigr/GPR.git
+git clone --recurse-submodules https://github.com/Linzdigr/GPR.git
 ```
 
 ## Compiling (Linux)
