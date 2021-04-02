@@ -4,7 +4,7 @@
 
 You might expect some frequency instabilities of the generated DAC signal and it's probably caused from the Raspberry Pi 4 clock speed changing over time (ARM slowing down when it's not busy) and impacting the related clock of the main clock of SPI. The output DAC frequency (driven over SPI) is then not corresponding to the requested values anymore.
 
-To read the actual speed of the your CPU:
+To read the actual speed of your CPU:
 
 ```
 cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq   # you'll probably see this changing over time
