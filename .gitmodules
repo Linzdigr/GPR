@@ -1,0 +1,3 @@
+[submodule "MCP4921"]
+	path = MCP4921
+	url = git@github.com:Linzdigr/MCP4921.git
