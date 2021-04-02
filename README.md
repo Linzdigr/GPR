@@ -1,5 +1,23 @@
 # GPR Project
 
+This project is intended to provided a way to see under the ground thanks to the FMCW radar technology.
+
+Two antennas are used (Rx & Tx).
+
+Tx will emmit a frequency changing over time repeatedly (sweep) in order to mix the Tx and received back Rx signal to create an output LF beat which will later be analysed (FFT) to determine the density, size and distance of various subjects under the ground.
+
+## Installing
+```sh
+git clone https://github.com/Linzdigr/GPR.git
+```
+
+## Compiling (Linux)
+```sh
+cd GPR
+make && make clean
+sudo ./nallàma
+```
+
 ## Troobleshoot / Optimisation
 
 You might expect some frequency instabilities of the generated DAC signal and it's probably caused from the Raspberry Pi 4 clock speed changing over time (ARM slowing down when it's not busy) and impacting the related clock of the main clock of SPI. The output DAC frequency (driven over SPI) is then not corresponding to the requested values anymore.
