@@ -10,6 +10,7 @@ using namespace std;
 #include "GPR.h"
 #include "MCP4921/MCP4921.h"
 #include "waveforms.h"
+#include "audio.h"
 
 #define SECOND_US               1e-6
 
@@ -55,12 +56,23 @@ void GPR::waveformGenerator() {
   printf("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\n\n", this->sweep_length, total_steps, step_hold_us);
 
   MCP4921 *dac = nullptr;
+  Audio *cap = nullptr;
+
+  try {
+    cap = new Audio();
+  }
+  catch(const string &e) {
+    cerr << e << endl;
+    exit(-1);
+  }
+  
 
   try {
     dac = new MCP4921();
   }
   catch(const string &e) {
     cerr << e << endl;
+    exit(-1);
   }
   
   uint16_t *wf = new uint16_t [total_steps];
