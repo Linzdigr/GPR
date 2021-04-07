@@ -2,8 +2,6 @@
 #include <thread>
 #include <unistd.h>
 #include <cstdint>
-// #include <mutex>
-// #include <condition_variable>
 
 using namespace std;
 
@@ -25,9 +23,11 @@ GPR::GPR(float freq_low, float freq_high, float tsweep)
   this->bw = this->f_low - this->f_hi;
 
   thread thread_dac(&GPR::waveformGenerator, this);
+  thread thread_record(&GPR::record, this);
   thread thread_fft(&GPR::processFFT, this);
 
   thread_dac.join();
+  thread_record.join();
   thread_fft.join();
 }
 
@@ -59,8 +59,7 @@ void GPR::waveformGenerator() {
 
   try {
     dac = new MCP4921();
-  }
-  catch(const string &e) {
+  } catch(const string &e) {
     cerr << e << endl;
     exit(-1);
   }
@@ -78,24 +77,34 @@ void GPR::waveformGenerator() {
   } while(1);
 }
 
-void GPR::processFFT() {
-  Recorder *cap = nullptr;
+void GPR::record() {
+  Recorder *rec = nullptr;
+
+  uint16_t *bloc_data = nullptr;
 
   try {
-    cap = new Recorder("hw:2,0");
-  }
-  catch(const string &e) {
+    rec = new Recorder("hw:2,0");
+  } catch(const string &e) {
     cerr << e << endl;
     exit(-1);
   }
 
+  // TODO: replace with mutex and condition variable
   do {
     if(this->relevant_time) {
-      cap->startCapture();
+      unsigned int len = rec->captureBloc(bloc_data);
+      this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
     } else {
-      cap->stopCapture();
+      lock_guard<mutex> lk(this->mtx);
+      this->cv.notify_one();
+      usleep(10);
     }
   } while(1);
+}
+
+void GPR::processFFT() {
+  unique_lock<mutex> lk(this->mtx);
+  this->cv.wait(lk, [this]{return !this->relevant_time;});
 }
 
 GPR::~GPR() {

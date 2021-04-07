@@ -27,14 +27,12 @@ class Recorder {
     snd_pcm_format_t format;
     uint8_t *buffer;
     long buffer_frames;
-    volatile static bool active_capture;
   public:
     Recorder(const char *device_name = (const char *)"hw:0",
           unsigned int rate = 96000,
           snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE,
           long _buffer_frames = 128);
-    void startCapture();
-    void stopCapture();
+    unsigned int captureBloc(uint16_t *sink);
     // void recordToWaveFile(const char *filename = "test.wav");
     WaveHeader* genericWAVHeader(uint32_t sample_rate, uint16_t bit_depth, uint16_t channels);
     int writeWAVHeader(int fd, WaveHeader *hdr);

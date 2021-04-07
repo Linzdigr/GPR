@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-I. -lpthread -lasound
-OBJ = main.o GPR.o MCP4921/MCP4921.o waveforms.o audio.o
+OBJ = main.o GPR.o MCP4921/MCP4921.o waveforms.o recorder.o
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)

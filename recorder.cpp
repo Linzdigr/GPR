@@ -2,7 +2,7 @@
 
   using namespace std;
 
-#include "audio.h"
+#include "recorder.h"
 
 Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t _format, long _buffer_frames)
 :format(_format), rate(_rate), buffer_frames(_buffer_frames) {
@@ -99,26 +99,27 @@ Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t
   cout << "Recorder capture device ready" << endl;
 }
 
-void Recorder::startCapture() {
-  this->active_capture = true;
-
+unsigned int Recorder::captureBloc(uint16_t *sink) {
   int err = 0;
 
-  do {
-    if((err = snd_pcm_readi(this->device, this->buffer, this->buffer_frames)) != this->buffer_frames) {
-      fprintf (stderr, "read from audio interface failed (%s)\n",
-               snd_strerror(err));
-      throw string("cannot read from audio interface");
-    }
-    for(unsigned int j = 0; j < this->buffer_frames; j+=2) {
-      unsigned int n = (unsigned int)(this->buffer[j] << (sizeof(unsigned int)*2)) | (this->buffer[j+1]);
-      cout << n << ";";
-    }
-  } while(this->active_capture);
-}
+  if((err = snd_pcm_readi(this->device, this->buffer, this->buffer_frames)) != this->buffer_frames) {
+    fprintf (stderr, "read from audio interface failed (%s)\n",
+              snd_strerror(err));
+    throw string("cannot read from audio interface");
+  }
 
-void Recorder::stopCapture() {
-  this->active_capture = false;
+  try {
+    sink = new uint16_t [this->buffer_frames];
+  }
+  catch(const std::exception& e) {
+    cerr << e.what() << endl;
+  }
+
+  for(unsigned int j = 0; j < this->buffer_frames; j+=2) {
+    sink[j] = (uint16_t)(this->buffer[j] << 8) | (this->buffer[j+1]);
+  }
+
+  return this->buffer_frames;
 }
 
 // void Recorder::recordToWaveFile(const char *filename) {

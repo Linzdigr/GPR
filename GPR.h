@@ -1,3 +1,6 @@
+#include <vector>
+#include <mutex>
+#include <condition_variable>
 
 class GPR {
   private:
@@ -8,6 +11,9 @@ class GPR {
     float f_low;
     float f_hi;
     volatile bool relevant_time;   // shared between threads DAC and FFT
+    vector<uint16_t> sweep_data;
+    mutex mtx;
+    condition_variable cv;
   protected:
     GPR(const float freq_start, const float freq_stop, const float tsweep);
   public:
@@ -16,6 +22,7 @@ class GPR {
     float freq2Dist(const float f);
     void waveformGenerator();
     float beat2Dist(float f);
+    void record();
     void processFFT();
     void operator=(const GPR &) = delete;
     ~GPR();
