@@ -12,7 +12,7 @@ using namespace std;
 
 #define SECOND_US               1e-6
 
-#define DAC_SAMPLING_RATE_S     30000
+#define DAC_SAMPLING_RATE_S     96000
 
 GPR* GPR::_instance = nullptr;
 
@@ -70,7 +70,12 @@ void GPR::waveformGenerator() {
 
   do {
     for(unsigned int i = 0; i < total_steps; i++) {
-      this->relevant_time = (total_steps / i >= 0.1 && total_steps / i <= 0.9);
+      bool poi = (total_steps / i >= 0.1 && total_steps / i <= 0.9);
+      if(this->relevant_time != poi) {
+        this->relevant_time = poi;
+        this->cv_relevant_time.notify_one();
+      }
+
       dac->setRawValue(wf[i]);
       usleep(step_hold_us);
     }
@@ -89,22 +94,36 @@ void GPR::record() {
     exit(-1);
   }
 
-  // TODO: replace with mutex and condition variable
+  unique_lock<mutex> lkrt(this->mtx_relevant_time);
+  unique_lock<mutex> lksd(this->mtx_sweep_data);
+
   do {
-    if(this->relevant_time) {
-      unsigned int len = rec->captureBloc(bloc_data);
-      this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
-    } else {
-      lock_guard<mutex> lk(this->mtx);
-      this->cv.notify_one();
-      usleep(10);
-    }
+    this->cv_relevant_time.wait(lkrt, [this]{return !this->relevant_time;});
+    lkrt.unlock();
+
+    do {
+      if(this->relevant_time) {
+        unsigned int len = rec->captureBloc(bloc_data);
+        this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
+      } else {
+        lksd.unlock();
+        this->cv_sweep_data.notify_one(); // Data is ready to be read
+        break;
+      }
+    } while (1);
+    this->cv_sweep_data.wait(lksd);
   } while(1);
 }
 
 void GPR::processFFT() {
-  unique_lock<mutex> lk(this->mtx);
-  this->cv.wait(lk, [this]{return !this->relevant_time;});
+  do {
+    unique_lock<mutex> lk(this->mtx_sweep_data);
+    this->cv_sweep_data.wait(lk, [this]{return !this->relevant_time;});
+
+    vector<uint16_t> data = this->sweep_data;
+    lk.unlock();
+    this->cv_sweep_data.notify_one();
+  } while (1);
 }
 
 GPR::~GPR() {

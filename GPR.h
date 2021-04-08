@@ -10,10 +10,12 @@ class GPR {
     float sweep_length;
     float f_low;
     float f_hi;
-    volatile bool relevant_time;   // shared between threads DAC and FFT
-    vector<uint16_t> sweep_data;
-    mutex mtx;
-    condition_variable cv;
+    bool relevant_time;   // shared between threads WaveformGenerator / FFT / Recorder
+    vector<uint16_t> sweep_data;   // shared between threads Recorder and FFT
+    mutex mtx_sweep_data;
+    mutex mtx_relevant_time;
+    condition_variable cv_sweep_data;
+    condition_variable cv_relevant_time;
   protected:
     GPR(const float freq_start, const float freq_stop, const float tsweep);
   public:
