@@ -32,7 +32,7 @@ class Recorder {
           unsigned int rate = 96000,
           snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE,
           long _buffer_frames = 128);
-    unsigned int captureBloc(uint16_t *sink);
+    unsigned int captureBloc(uint16_t *&sink);
     // void recordToWaveFile(const char *filename = "test.wav");
     WaveHeader* genericWAVHeader(uint32_t sample_rate, uint16_t bit_depth, uint16_t channels);
     int writeWAVHeader(int fd, WaveHeader *hdr);

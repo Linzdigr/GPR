@@ -99,7 +99,7 @@ Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t
   cout << "Recorder capture device ready" << endl;
 }
 
-unsigned int Recorder::captureBloc(uint16_t *sink) {
+unsigned int Recorder::captureBloc(uint16_t *&sink) {
   int err = 0;
 
   if((err = snd_pcm_readi(this->device, this->buffer, this->buffer_frames)) != this->buffer_frames) {
