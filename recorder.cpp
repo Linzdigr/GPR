@@ -1,4 +1,6 @@
 #include <iostream>
+#include <algorithm>
+#include <iterator>
 
   using namespace std;
 
@@ -94,54 +96,47 @@ Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t
     throw string("cannot prepare audio interface for use");
   }
 
-  this->buffer = (uint8_t *)malloc(this->buffer_frames * (snd_pcm_format_width(this->format) / 8));
+  this->buffer = (int16_t *)malloc(this->buffer_frames * (snd_pcm_format_width(this->format) / 8));
 
   cout << "Recorder capture device ready" << endl;
 }
 
-unsigned int Recorder::captureBloc(uint16_t *&sink) {
+unsigned int Recorder::captureBloc(int16_t *&sink) {
   int err = 0;
 
-  if((err = snd_pcm_readi(this->device, this->buffer, this->buffer_frames)) != this->buffer_frames) {
+  try {
+    sink = new int16_t [this->buffer_frames];
+  } catch(const std::exception& e) {
+    cerr << e.what() << endl;
+  }
+
+  if((err = snd_pcm_readi(this->device, sink, this->buffer_frames)) != this->buffer_frames) {
     fprintf (stderr, "read from audio interface failed (%s)\n",
               snd_strerror(err));
     throw string("cannot read from audio interface");
   }
 
-  try {
-    sink = new uint16_t [this->buffer_frames];
-  }
-  catch(const std::exception& e) {
-    cerr << e.what() << endl;
-  }
-
-  for(unsigned int j = 0; j < this->buffer_frames; j+=2) {
-    sink[j] = (uint16_t)(this->buffer[j] << 8) | (this->buffer[j+1]);
-  }
+  // for(unsigned int j = 0; j < this->buffer_frames; j+=2) {
+  //   int16_t n;
+  //   // memcpy(&n, &this->buffer[j], sizeof(this->buffer[j]) * (snd_pcm_format_width(this->format) / 8));
+  //   n = this->buffer[j+1] << 8 | this->buffer[j];
+  //   sink[j] = n;
+  //   cout << "real " << n << endl;
+  // }
 
   return this->buffer_frames;
 }
 
-// void Recorder::recordToWaveFile(const char *filename) {
-//   int err = 0;
+void Recorder::recordToWaveFile(const char *filename, uint32_t size, int16_t *data) {
+  int err = 0;
 
-//   WaveHeader *hdr = genericWAVHeader(96000, 16, 1);
-// uint32_t pcm_data_size = hdr->sample_rate * hdr->bytes_per_frame * duration / 1000;
-//   hdr->file_size
+  int fd = open(filename, O_WRONLY | O_CREAT, 0644);
 
-//   int fd = open(filename, O_WRONLY | O_CREAT, 0644);
-//   err = writeWAVHeader(fd, hdr);
+  write(fd, data, size);
 
-//   for(unsigned int i = 0; i < 1525; ++i) {
-//     if((err = snd_pcm_readi(this->device, this->buffer, this->buffer_frames)) != this->buffer_frames) {
-//       fprintf (stderr, "read from audio interface failed (%s)\n",
-//                snd_strerror(err));
-//       throw string("cannot read from audio interface");
-//     }
-
-//     write(fd, this->buffer, this->buffer_frames * (snd_pcm_format_width(this->format) / 8));
-//   }
-// }
+  return;
+  WaveHeader *hdr = Recorder::genericWAVHeader(96000, 16, 1);
+}
 
 WaveHeader* Recorder::genericWAVHeader(uint32_t sample_rate, uint16_t bit_depth, uint16_t channels) {
   WaveHeader *hdr;
