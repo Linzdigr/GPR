@@ -1,3 +1,5 @@
 *.o
 nalláma
 .vscode
+*.csv
+*.wav

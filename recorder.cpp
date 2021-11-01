@@ -6,7 +6,7 @@
 
 #include "recorder.h"
 
-Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t _format, long _buffer_frames)
+Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t _format, unsigned int _buffer_frames)
 :format(_format), rate(_rate), buffer_frames(_buffer_frames) {
   cout << "Setting audio device..." << endl;
 
@@ -69,14 +69,15 @@ Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t
 
   cout << "hw_params channels setted" << endl;
 
-  // snd_pcm_uframes_t periodsize = 256;
-  // if((err = snd_pcm_hw_params_set_buffer_size_near(this->device, this->hw_params, &periodsize)) < 0) {
-  //   fprintf(stderr, "cannot set channel count (%s)\n",
-  //            snd_strerror(err));
-  //   throw string("cannot set channel count");
-  // }
+  if((err = snd_pcm_hw_params_set_buffer_size_near(this->device, this->hw_params, &(this->buffer_frames))) < 0) {
+    fprintf(stderr, "cannot set channel count (%s)\n",
+             snd_strerror(err));
+    throw string("cannot set channel count");
+  }
 
-  // cout << "hw_params channels setted" << endl;
+  snd_pcm_uframes_t val;
+  snd_pcm_hw_params_get_buffer_size(this->hw_params, &val);
+  cout << "hw_params buffer size setted at " << val << endl;
 	
   if((err = snd_pcm_hw_params(this->device, this->hw_params)) < 0) {
     fprintf(stderr, "cannot set parameters (%s)\n",
@@ -96,16 +97,16 @@ Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t
     throw string("cannot prepare audio interface for use");
   }
 
-  this->buffer = (int16_t *)malloc(this->buffer_frames * (snd_pcm_format_width(this->format) / 8));
+  this->buffer = (int32_t *)malloc(this->buffer_frames * (snd_pcm_format_width(this->format) / 8));
 
   cout << "Recorder capture device ready" << endl;
 }
 
-unsigned int Recorder::captureBloc(int16_t *&sink) {
+unsigned int Recorder::captureBloc(int32_t *&sink) {
   int err = 0;
 
   try {
-    sink = new int16_t [this->buffer_frames];
+    sink = new int32_t [this->buffer_frames];
   } catch(const std::exception& e) {
     cerr << e.what() << endl;
   }
@@ -127,7 +128,7 @@ unsigned int Recorder::captureBloc(int16_t *&sink) {
   return this->buffer_frames;
 }
 
-void Recorder::recordToWaveFile(const char *filename, uint32_t size, int16_t *data) {
+void Recorder::recordToWaveFile(const char *filename, uint32_t size, int32_t *data) {
   int err = 0;
 
   int fd = open(filename, O_WRONLY | O_CREAT, 0644);

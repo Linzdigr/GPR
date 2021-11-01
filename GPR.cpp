@@ -16,7 +16,7 @@ using namespace std;
 #define SECOND_US               1e-6
 
 #define DAC_SAMPLING_RATE_S     96000
-#define ADC_SAMPLING_RATE_S     48000
+#define ADC_SAMPLING_RATE_S     96000
 
 GPR* GPR::_instance = nullptr;
 
@@ -69,8 +69,14 @@ void GPR::waveformGenerator() {
   //   cerr << e << endl;
   //   exit(-1);
   // }
+
+  uint16_t *wf = nullptr;
   
-  uint16_t *wf = new uint16_t [total_steps];
+  try {
+    wf = new uint16_t [total_steps];
+  }  catch(const std::exception& e) {
+    std::cerr << e.what() << '\n';
+  }  
 
   Waveform::ramp(wf, total_steps, 0, MCP4921::MAX_DAC_VALUE);
 
@@ -88,10 +94,10 @@ void GPR::waveformGenerator() {
 void GPR::record() {
   unique_lock<mutex> lksd(this->mtx_sweep_data, std::defer_lock);
   Recorder *rec = nullptr;
-  int16_t *bloc_data = nullptr;
+  int32_t *bloc_data = nullptr;
 
   try {
-    rec = new Recorder("plughw:1,0", ADC_SAMPLING_RATE_S, SND_PCM_FORMAT_S16_LE);
+    rec = new Recorder("plughw:1,0", ADC_SAMPLING_RATE_S, SND_PCM_FORMAT_S32_LE, 2048);
   } catch(const string &e) {
     cerr << e << endl;
     exit(-1);
@@ -118,9 +124,12 @@ void GPR::record() {
       if(this->relevant_time) { // Retrieve data phase
         unsigned int len = rec->captureBloc(bloc_data);
         this->sweep_data.insert(this->sweep_data.begin(), bloc_data, bloc_data + len);
-        cout << "!!! " << this->sweep_data.size() << endl;
         free(bloc_data);
       } else { // Data set is ready to be read
+        /* Dropping unusable frames */
+        rec->captureBloc(bloc_data);
+        free(bloc_data);
+
         cout << "record: data set is ready to be read. Unlocking the current state." << lksd.owns_lock() << endl;
         lksd.unlock();
         this->cv_sweep_data.notify_one();
