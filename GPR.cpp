@@ -13,15 +13,15 @@ using namespace std;
 #include "waveforms.h"
 #include "recorder.h"
 
-#define SECOND_US               1e-6
+#define SECOND_US               1e6F
 
-#define DAC_SAMPLING_RATE_S     96000
+#define DAC_CMD_RATE_S     96000
 #define ADC_SAMPLING_RATE_S     96000
 
 GPR* GPR::_instance = nullptr;
 
-GPR::GPR(float freq_low, float freq_high, float tsweep)
-:f_low(freq_low), f_hi(freq_high), relevant_time(false), sweep_length(tsweep) {
+GPR::GPR(float freq_low, float freq_high, float tsweep_us)
+:f_low(freq_low), f_hi(freq_high), relevant_time(false), sweep_length_us(tsweep_us) {
   cout << "Creating 1 GPR" << endl;
 
   this->bw = this->f_low - this->f_hi;
@@ -37,38 +37,38 @@ GPR::GPR(float freq_low, float freq_high, float tsweep)
   thread_fft.join();
 }
 
-GPR* GPR::getInstance(const float freq_start, const float freq_stop, const float tsweep) {
+GPR* GPR::getInstance(const float freq_start, const float freq_stop, const float tsweep_us) {
   /**
    * This is a safer way to create an instance. instance = new Singleton is
    * dangerous in case two instance threads wants to access at the same time
    */
   if(GPR::_instance == nullptr) {
-    GPR::_instance = new GPR(freq_start, freq_stop, tsweep);
+    GPR::_instance = new GPR(freq_start, freq_stop, tsweep_us);
   }
 
   return GPR::_instance;
 }
 
 float GPR::beat2Dist(float f) {
-  return GPR::c * f / (2 * (this->bw / this->sweep_length));
+  return GPR::c * f / (2 * (this->bw / this->sweep_length_us));
 }
 
 void GPR::waveformGenerator() {
   cout << "GPR::waveformGenerator()" << endl;
 
-  unsigned int total_steps = (this->sweep_length * (float)DAC_SAMPLING_RATE_S);
-  float step_hold_us = (this->sweep_length / total_steps) / SECOND_US;
+  unsigned int total_steps = 4096;
+  float step_hold_us = (this->sweep_length_us / total_steps);
 
-  printf("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\n\n", this->sweep_length, total_steps, step_hold_us);
+  printf("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\n\n", this->sweep_length_us, total_steps, step_hold_us);
 
   MCP4921 *dac = nullptr;
 
-  // try {
-  //   dac = new MCP4921();
-  // } catch(const string &e) {
-  //   cerr << e << endl;
-  //   exit(-1);
-  // }
+  try {
+    dac = new MCP4921();
+  } catch(const string &e) {
+    cerr << e << endl;
+    exit(-1);
+  }
 
   uint16_t *wf = nullptr;
   
@@ -81,11 +81,12 @@ void GPR::waveformGenerator() {
   Waveform::ramp(wf, total_steps, 0, MCP4921::MAX_DAC_VALUE);
 
   do {
+    unsigned int start_i = total_steps * 0.1f;
+    unsigned int stop_i  = total_steps * 0.9f;
     for(unsigned int i = 0; i < total_steps; i++) {
-      float progression = ((float)i / (float)total_steps);
-      this->relevant_time = (progression >= 0.1 && progression <= 0.9);
+      this->relevant_time = (i >= start_i && i <= stop_i);
 
-      // dac->setRawValue(wf[i]);
+      dac->setRawValue(wf[i]);
       usleep(step_hold_us);
     }
   } while(1);
