@@ -87,7 +87,8 @@ void GPR::waveformGenerator() {
       this->relevant_time = (i >= start_i && i <= stop_i);
 
       dac->setRawValue(wf[i]);
-      usleep(step_hold_us);
+      // usleep(step_hold_us);
+      std::this_thread::sleep_for(std::chrono::nanoseconds((int)step_hold_ns));
     }
   } while(1);
 }
