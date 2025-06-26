@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include <chrono>
 #include <unistd.h>
 #include <cstdint>
 #include <math.h>
@@ -88,7 +89,7 @@ void GPR::waveformGenerator() {
 
       dac->setRawValue(wf[i]);
       // usleep(step_hold_us);
-      std::this_thread::sleep_for(std::chrono::nanoseconds((int)step_hold_ns));
+      std::this_thread::sleep_for(std::chrono::nanoseconds((int)step_hold_us));
     }
   } while(1);
 }
