@@ -4,22 +4,15 @@ using namespace std;
 
 #include "waveforms.h"
 
-void Waveform::ramp(uint16_t *sink,  unsigned int points, double min, double max, float symmetry) {
-  float last_val = 0.0;
-  float step_val = ((float)max / (float)((float)points / 2.0));
+Waveform::Waveform(/* args */) { }
 
-  for(unsigned int i = min; i < (points + min); i++) {
-    if((unsigned int)(last_val + step_val) > max || (unsigned int)(last_val + step_val) < min) {
-      step_val *= -1.0F;
-    }
+void Waveform::ramp(uint16_t *sink,  unsigned int points, double min, double max) {
+  float step_val = ((float)max / (float)(points));
 
-    sink[i] = (uint16_t)(last_val + step_val);
-
-    last_val = sink[i];
+  for(unsigned int i = min; i < max; i++) {
+    sink[i] = (uint16_t)(step_val*i);
   }
 }
-
-Waveform::Waveform(/* args */) { }
 
 Waveform::~Waveform() {
   cout << "Destroying 1 Waveform" << endl;

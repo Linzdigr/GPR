@@ -60,7 +60,7 @@ void GPR::waveformGenerator() {
   unsigned int total_steps = 4096;
   float step_hold_us = (this->sweep_length_us / total_steps);
 
-  printf("\nPeriod: %fµs\nTotal steps: %u\nStep hold: %fµs\n\n", this->sweep_length_us, total_steps, step_hold_us);
+  printf("\nPeriod: %fms\nTotal steps: %u\nStep hold: %fµs\n\n", (this->sweep_length_us / 1000), total_steps, step_hold_us);
 
   MCP4921 *dac = nullptr;
 
@@ -89,7 +89,7 @@ void GPR::waveformGenerator() {
 
       dac->setRawValue(wf[i]);
       // usleep(step_hold_us);
-      std::this_thread::sleep_for(std::chrono::nanoseconds((int)step_hold_us));
+      std::this_thread::sleep_for(std::chrono::nanoseconds((int)(step_hold_us*1000)));
     }
   } while(1);
 }
@@ -117,21 +117,19 @@ void GPR::record() {
 
     bool last_relevant_val;
 
-    do {
-      last_relevant_val = this->relevant_time;
-    } while(!(this->relevant_time && !last_relevant_val)); // We only want data from the start of sweep period / phase
-
-    cout << "record: relevant time started!" << endl;
+    while(!this->relevant_time) {
+      std::this_thread::sleep_for(std::chrono::microseconds(10));
+    }
 
     do {
       if(this->relevant_time) { // Retrieve data phase
         unsigned int len = rec->captureBloc(bloc_data);
-        this->sweep_data.insert(this->sweep_data.begin(), bloc_data, bloc_data + len);
-        free(bloc_data);
+        this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
+        delete []bloc_data;
       } else { // Data set is ready to be read
         /* Dropping unusable frames */
         rec->captureBloc(bloc_data);
-        free(bloc_data);
+        delete []bloc_data;
 
         cout << "record: data set is ready to be read. Unlocking the current state." << lksd.owns_lock() << endl;
         lksd.unlock();

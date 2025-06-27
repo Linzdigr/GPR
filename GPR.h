@@ -20,7 +20,7 @@ class GPR {
   protected:
     GPR(const float freq_start, const float freq_stop, const float tsweep_us);
   public:
-    static GPR* getInstance(const float freq_start = 1.2e9F, const float freq_stop = 2.7e9F, const float tsweep_us = 1000);
+    static GPR* getInstance(const float freq_start = 1.2e9F, const float freq_stop = 2.7e9F, const float tsweep_us = 20000);
     GPR(GPR &other) = delete;
     float freq2Dist(const float f);
     void waveformGenerator();
