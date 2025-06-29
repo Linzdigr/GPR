@@ -7,7 +7,7 @@
 
 struct {
   char RIFF_marker[4];
-  uint32_t file_size;
+  uint32_t file_size;          // File size - 8
   char filetype_header[4];
   char format_marker[4];
   uint32_t data_header_length;
@@ -17,6 +17,8 @@ struct {
   uint32_t bytes_per_second;
   uint16_t bytes_per_frame;
   uint16_t bits_per_sample;
+  char data_marker[4];         // "data"
+  uint32_t data_chunk_size;    // size of data in bytes
 } typedef WaveHeader;
 
 class Recorder {
@@ -33,7 +35,7 @@ class Recorder {
           snd_pcm_format_t format = SND_PCM_FORMAT_S32_LE,
           unsigned int _buffer_frames = 2048);
     unsigned int captureBloc(int32_t *&sink);
-    static void recordToWaveFile(const char *filename, uint32_t size, int32_t *data);
+    void saveToWaveFile(const char *filename, uint32_t size, int32_t *data);
     static WaveHeader* genericWAVHeader(uint32_t sample_rate, uint16_t bit_depth, uint16_t channels);
     static int writeWAVHeader(int fd, WaveHeader *hdr);
     ~Recorder();

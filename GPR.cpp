@@ -17,7 +17,7 @@ using namespace std;
 #define SECOND_US               1e6F
 
 #define DAC_CMD_RATE_S     96000
-#define ADC_SAMPLING_RATE_S     96000
+#define ADC_SAMPLING_RATE_S     48000
 
 GPR* GPR::_instance = nullptr;
 
@@ -100,7 +100,7 @@ void GPR::record() {
   int32_t *bloc_data = nullptr;
 
   try {
-    rec = new Recorder("plughw:1,0", ADC_SAMPLING_RATE_S, SND_PCM_FORMAT_S32_LE, 2048);
+    rec = new Recorder("plughw:2,0", ADC_SAMPLING_RATE_S, SND_PCM_FORMAT_S32_LE, 2048);
   } catch(const string &e) {
     cerr << e << endl;
     exit(-1);
@@ -124,22 +124,19 @@ void GPR::record() {
     do {
       if(this->relevant_time) { // Retrieve data phase
         unsigned int len = rec->captureBloc(bloc_data);
+        GPR::windowing(bloc_data, len, HANN_FUNCTION);
         this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
         delete []bloc_data;
       } else { // Data set is ready to be read
         /* Dropping unusable frames */
-        rec->captureBloc(bloc_data);
+        rec->captureBloc(bloc_data); // Dump and clear
         delete []bloc_data;
 
-        cout << "record: data set is ready to be read. Unlocking the current state." << lksd.owns_lock() << endl;
+        cout << "record: data set is ready to be read. Unlocking the current state. Have lock : " << lksd.owns_lock() << endl;
         lksd.unlock();
         this->cv_sweep_data.notify_one();
 
-        int fd = open("mi.wav", O_WRONLY | O_CREAT, 0644);
-
-        write(fd, this->sweep_data.data(), sizeof(int16_t) * this->sweep_data.size());
-
-        close(fd);
+        rec->saveToWaveFile("mi.wav", sizeof(int16_t) * this->sweep_data.size(), this->sweep_data.data());
 
         break;
       }
@@ -161,6 +158,12 @@ void GPR::processFFT() {
     cout << "processFFT got lock sd" << endl;
     
     int len = this->sweep_data.size();
+
+    // if(len == 0 || (len & (len - 1)) != 0) {
+    //     cerr << "FFT input size must be > 0 and power of 2. Got: " << len << endl;
+    //     continue;
+    // }
+
     int output_size = (len/2 + 1);
     float magnitude_plot[(len/2)-2][2];
     double *in = static_cast<double*>(fftw_malloc(len * sizeof(double)));
@@ -173,8 +176,6 @@ void GPR::processFFT() {
     cout << "processFFT copied data, released lock." << endl;
     this->cv_sweep_data.notify_one();
 
-    GPR::windowing(in, len);
-
     p = fftw_plan_dft_r2c_1d(len, in, out, FFTW_ESTIMATE);
 
     fftw_execute(p);
@@ -186,7 +187,7 @@ void GPR::processFFT() {
       magnitude_plot[i-1][0] = (i * ADC_SAMPLING_RATE_S / len);
       // magnitude_plot[i-1][0] = (double)((double)i / (double)(len / 2)) * (ADC_SAMPLING_RATE_S / 2);
       magnitude_plot[i-1][1] = sqrt(out[i][0]*out[i][0] + out[i][1]*out[i][1]);
-      fd << to_string((int)magnitude_plot[i-1][0]) << ',' << to_string((int)magnitude_plot[i-1][1]) << endl;
+      fd << to_string((int)magnitude_plot[i-1][0]) << ';' << to_string((int)magnitude_plot[i-1][1]) << endl;
     }
 
     fftw_free(in);
@@ -196,7 +197,7 @@ void GPR::processFFT() {
   fftw_destroy_plan(p);
 }
 
-void GPR::windowing(double *(&data), int len, int method) {
+void GPR::windowing(int32_t *(&data), unsigned int len, unsigned int method) {
   if(method == HANN_FUNCTION) {
     for(unsigned int i = 0; i < len; i++) {
       double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (len - 1)));

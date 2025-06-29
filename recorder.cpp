@@ -128,23 +128,27 @@ unsigned int Recorder::captureBloc(int32_t *&sink) {
   return this->buffer_frames;
 }
 
-void Recorder::recordToWaveFile(const char *filename, uint32_t size, int32_t *data) {
+void Recorder::saveToWaveFile(const char *filename, uint32_t size, int32_t *data) {
   int err = 0;
 
   int fd = open(filename, O_WRONLY | O_CREAT, 0644);
+  WaveHeader *hdr = Recorder::genericWAVHeader(this->rate, this->format, 1);
+
+  hdr->file_size = size - 8;
+  hdr->data_chunk_size = sizeof(WaveHeader) + size;
+
+  Recorder::writeWAVHeader(fd, hdr);
 
   write(fd, data, size);
 
+  close(fd);
+
   return;
-  WaveHeader *hdr = Recorder::genericWAVHeader(96000, 16, 1);
 }
 
 WaveHeader* Recorder::genericWAVHeader(uint32_t sample_rate, uint16_t bit_depth, uint16_t channels) {
-  WaveHeader *hdr;
-  hdr = (WaveHeader*) malloc(sizeof(*hdr));
-  if(!hdr) {
-    return NULL;
-  }
+  WaveHeader *hdr = (WaveHeader*) calloc(1, sizeof(WaveHeader));
+  if(!hdr) return NULL;
 
   memcpy(&hdr->RIFF_marker, "RIFF", 4);
   memcpy(&hdr->filetype_header, "WAVE", 4);
@@ -156,6 +160,8 @@ WaveHeader* Recorder::genericWAVHeader(uint32_t sample_rate, uint16_t bit_depth,
   hdr->bytes_per_second = sample_rate * channels * bit_depth / 8;
   hdr->bytes_per_frame = channels * bit_depth / 8;
   hdr->bits_per_sample = bit_depth;
+  memcpy(&hdr->data_marker, "data", 4);
+  hdr->data_chunk_size = 0; // To be filled later
 
   return hdr;
 }
@@ -178,8 +184,8 @@ int Recorder::writeWAVHeader(int fd, WaveHeader *hdr) {
   write(fd, &hdr->bits_per_sample, 2);
   write(fd, "data", 4);
 
-  uint32_t data_size = hdr->file_size + 8 - 44;
-  write(fd, &data_size, 4);
+  uint32_t data_size = hdr->file_size - 36;
+  if(write(fd, &data_size, 4) != 4) return -1;
 
   return 0;
 }

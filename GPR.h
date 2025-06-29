@@ -27,7 +27,7 @@ class GPR {
     float beat2Dist(float f);
     void record();
     void processFFT();
-    void windowing(double *(&data), int len, int method = HANN_FUNCTION);
+    static void windowing(int32_t *(&data), unsigned int len, unsigned int method = HANN_FUNCTION);
     void operator=(const GPR &) = delete;
     ~GPR();
 };
