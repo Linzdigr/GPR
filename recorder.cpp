@@ -111,7 +111,7 @@ void Recorder::pause() {
 }
 
 void Recorder::resume() {
-  if(snd_pcm_state() != SND_PCM_STATE_PAUSED) {
+  if(snd_pcm_state(this->device) != SND_PCM_STATE_PAUSED) {
     return;
   }
   
