@@ -129,7 +129,6 @@ void GPR::record() {
         unsigned int len = rec->captureBloc(bloc_data);
         GPR::windowing(bloc_data, len, HANN_FUNCTION);
         this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
-        cout << "ok" << endl;
         delete []bloc_data;
       } else { // Full data set is available
         rec->pause();
