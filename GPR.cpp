@@ -101,6 +101,7 @@ void GPR::record() {
 
   try {
     rec = new Recorder("plughw:2,0", ADC_SAMPLING_RATE_S, SND_PCM_FORMAT_S32_LE, 2048);
+    rec->pause();
   } catch(const string &e) {
     cerr << e << endl;
     exit(-1);
@@ -121,27 +122,31 @@ void GPR::record() {
       std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 
+    rec->resume();
+
     do {
-      if(this->relevant_time) { // Retrieve data phase
+      if(this->relevant_time) { // Fetch data phase
         unsigned int len = rec->captureBloc(bloc_data);
         GPR::windowing(bloc_data, len, HANN_FUNCTION);
         this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
+        cout << "ok" << endl;
         delete []bloc_data;
-      } else { // Data set is ready to be read
-        /* Dropping unusable frames */
-        rec->captureBloc(bloc_data); // Dump and clear
-        delete []bloc_data;
-
+      } else { // Full data set is available
+        rec->pause();
         cout << "record: data set is ready to be read. Unlocking the current state. Have lock : " << lksd.owns_lock() << endl;
+        /* Dropping unusable frames */
+
         lksd.unlock();
         this->cv_sweep_data.notify_one();
 
-        rec->saveToWaveFile("mi.wav", sizeof(int16_t) * this->sweep_data.size(), this->sweep_data.data());
+        rec->saveToWaveFile("mi.wav", sizeof(int32_t) * this->sweep_data.size(), this->sweep_data.data());
 
         break;
       }
     } while(1);
   } while(1);
+
+  rec->cleanup();
 }
 
 int x = 0;

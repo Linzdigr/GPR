@@ -102,6 +102,34 @@ Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t
   cout << "Recorder capture device ready" << endl;
 }
 
+void Recorder::pause() {
+  if(snd_pcm_hw_params_can_pause(this->hw_params)) {
+    snd_pcm_pause(this->device, 1);  // pause
+  } else {
+    cout << "Pause not supported by this device." << endl;
+  }
+}
+
+void Recorder::resume() {
+  if(snd_pcm_state() != SND_PCM_STATE_PAUSED) {
+    return;
+  }
+  
+  if(snd_pcm_hw_params_can_pause(this->hw_params)) {
+    snd_pcm_pause(this->device, 0);  // resume
+  } else {
+    snd_pcm_prepare(this->device);   // just re-prepare if pause not supported
+  }
+}
+
+void Recorder::cleanup() {
+  if(this->device) {
+    snd_pcm_drop(this->device);     // stop & drop any activity
+    snd_pcm_close(this->device);    // close ALSA device
+    this->device = nullptr;
+  }
+}
+
 unsigned int Recorder::captureBloc(int32_t *&sink) {
   int err = 0;
 
