@@ -28,6 +28,7 @@ class GPR {
     void record();
     void processFFT();
     static void windowing(int32_t *(&data), unsigned int len, unsigned int method = HANN_FUNCTION);
+    static void generateSpectrogramImage(const char* output_file, int32_t* data, uint32_t num_samples, uint32_t sample_rate, uint32_t window_size, uint32_t hop_size);
     void operator=(const GPR &) = delete;
     ~GPR();
 };

@@ -103,6 +103,8 @@ void Recorder::stop() {
 }
 
 void Recorder::start() {
+  int err = 0;
+
   if((err = snd_pcm_prepare(this->device)) < 0) {
     fprintf(stderr, "cannot prepare audio interface for use (%s)\n", snd_strerror(err));
     throw string("cannot prepare audio interface for use");
@@ -147,7 +149,7 @@ void Recorder::saveToWaveFile(const char *filename, uint32_t size, int32_t *data
   int err = 0;
 
   int fd = open(filename, O_WRONLY | O_CREAT, 0644);
-  WaveHeader *hdr = Recorder::genericWAVHeader(this->rate, this->format, 1);
+  WaveHeader *hdr = Recorder::genericWAVHeader(this->rate, Recorder::formatToBits(this->format), 1);
 
   hdr->file_size = size - 8;
   hdr->data_chunk_size = sizeof(WaveHeader) + size;
@@ -203,6 +205,25 @@ int Recorder::writeWAVHeader(int fd, WaveHeader *hdr) {
   if(write(fd, &data_size, 4) != 4) return -1;
 
   return 0;
+}
+
+uint16_t Recorder::formatToBits(snd_pcm_format_t fmt) {
+  switch(fmt) {
+    case SND_PCM_FORMAT_S8:
+    case SND_PCM_FORMAT_U8:
+      return 8;
+    case SND_PCM_FORMAT_S16_LE:
+    case SND_PCM_FORMAT_U16_LE:
+      return 16;
+    case SND_PCM_FORMAT_S24_LE:
+    case SND_PCM_FORMAT_U24_LE:
+      return 24;
+    case SND_PCM_FORMAT_S32_LE:
+    case SND_PCM_FORMAT_U32_LE:
+      return 32;
+    default:
+      return 0; // Invalid or unsupported format
+  }
 }
 
 Recorder::~Recorder() {

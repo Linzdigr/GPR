@@ -13,6 +13,9 @@ using namespace std;
 #include "MCP4921/MCP4921.h"
 #include "waveforms.h"
 #include "recorder.h"
+#include "stb_image_write.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #define SECOND_US               1e6F
 
@@ -81,14 +84,14 @@ void GPR::waveformGenerator() {
 
   Waveform::ramp(wf, total_steps, 0, MCP4921::MAX_DAC_VALUE);
 
+  unsigned int start_i = total_steps * 0.1f;
+  unsigned int stop_i  = total_steps * 0.9f;
+
   do {
-    unsigned int start_i = total_steps * 0.1f;
-    unsigned int stop_i  = total_steps * 0.9f;
     for(unsigned int i = 0; i < total_steps; i++) {
       this->relevant_time = (i >= start_i && i <= stop_i);
 
       dac->setRawValue(wf[i]);
-      // usleep(step_hold_us);
       std::this_thread::sleep_for(std::chrono::nanoseconds((int)(step_hold_us*1000)));
     }
   } while(1);
@@ -101,7 +104,6 @@ void GPR::record() {
 
   try {
     rec = new Recorder("plughw:2,0", ADC_SAMPLING_RATE_S, SND_PCM_FORMAT_S32_LE, 2048);
-    rec->pause();
   } catch(const string &e) {
     cerr << e << endl;
     exit(-1);
@@ -133,8 +135,6 @@ void GPR::record() {
       } else { // Full data set is available
         rec->stop();
         cout << "record: data set is ready to be read. Unlocking the current state. Have lock : " << lksd.owns_lock() << endl;
-        /* Dropping unusable frames */
-
         lksd.unlock();
         this->cv_sweep_data.notify_one();
 
@@ -148,57 +148,110 @@ void GPR::record() {
   rec->cleanup();
 }
 
+void GPR::generateSpectrogramImage(const char* output_file, int32_t* data, uint32_t num_samples, uint32_t sample_rate, uint32_t window_size, uint32_t hop_size) {
+  const int fft_size = window_size;
+  const int num_frames = (num_samples - window_size) / hop_size + 1;
+  const int height = fft_size / 2;
+  const int width = num_frames;
+
+  // Allocate image buffer (grayscale)
+  std::vector<uint8_t> image(height * width, 0);
+
+  std::vector<double> window(fft_size);
+  for (int i = 0; i < fft_size; ++i) {
+    window[i] = 0.5 * (1 - cos(2 * M_PI * i / (fft_size - 1)));  // Hann window
+  }
+
+  fftw_plan plan;
+  double* in = (double*)fftw_malloc(sizeof(double) * fft_size);
+  fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (fft_size / 2 + 1));
+  plan = fftw_plan_dft_r2c_1d(fft_size, in, out, FFTW_ESTIMATE);
+
+  float max_mag = 1e-6;
+
+  // STFT loop
+  for (int frame = 0; frame < num_frames; ++frame) {
+    int offset = frame * hop_size;
+
+    // Copy and window data
+    for (int i = 0; i < fft_size; ++i) {
+      int32_t sample = data[offset + i];
+      in[i] = (double)sample * window[i];
+    }
+
+    fftw_execute(plan);
+
+    // Compute magnitude
+    for (int k = 0; k < height; ++k) {
+      double real = out[k][0];
+      double imag = out[k][1];
+      double mag = sqrt(real * real + imag * imag);
+      mag = 20 * log10(mag + 1e-6);  // dB scale
+      max_mag = std::max(max_mag, (float)mag);
+      image[(height - 1 - k) * width + frame] = (uint8_t)std::clamp((mag + 60.0) * 4.25, 0.0, 255.0);  // Normalize from -60dB to 0dB
+    }
+  }
+
+  fftw_destroy_plan(plan);
+  fftw_free(in);
+  fftw_free(out);
+
+  // Write grayscale PNG
+  stbi_write_png(output_file, width, height, 1, image.data(), width);
+}
+
 int x = 0;
 
 void GPR::processFFT() {
-  fftw_plan p;
+  GPR::generateSpectrogramImage("spectrogram.png", this->sweep_data.data(), this->sweep_data.size(), this->rate, 1024, 512);
+  // fftw_plan p;
 
-  while(!this->recorder_ready);
+  // while(!this->recorder_ready);
 
-  do {
-    unique_lock<mutex> lk(this->mtx_sweep_data);
-    cout << "processFFT waiting for lock sd" << endl;
-    this->cv_sweep_data.wait(lk, [this]{return this->recorder_ready;});
-    cout << "processFFT got lock sd" << endl;
+  // do {
+  //   unique_lock<mutex> lk(this->mtx_sweep_data);
+  //   cout << "processFFT waiting for lock sd" << endl;
+  //   this->cv_sweep_data.wait(lk, [this]{return this->recorder_ready;});
+  //   cout << "processFFT got lock sd" << endl;
     
-    int len = this->sweep_data.size();
+  //   int len = this->sweep_data.size();
 
-    // if(len == 0 || (len & (len - 1)) != 0) {
-    //     cerr << "FFT input size must be > 0 and power of 2. Got: " << len << endl;
-    //     continue;
-    // }
+  //   // if(len == 0 || (len & (len - 1)) != 0) {
+  //   //     cerr << "FFT input size must be > 0 and power of 2. Got: " << len << endl;
+  //   //     continue;
+  //   // }
 
-    int output_size = (len/2 + 1);
-    float magnitude_plot[(len/2)-2][2];
-    double *in = static_cast<double*>(fftw_malloc(len * sizeof(double)));
-    fftw_complex *out = static_cast<fftw_complex*>(fftw_malloc(output_size * sizeof(fftw_complex)));
-    std::copy(this->sweep_data.data(), this->sweep_data.data() + len, in);
+  //   int output_size = (len/2 + 1);
+  //   float magnitude_plot[(len/2)-2][2];
+  //   double *in = static_cast<double*>(fftw_malloc(len * sizeof(double)));
+  //   fftw_complex *out = static_cast<fftw_complex*>(fftw_malloc(output_size * sizeof(fftw_complex)));
+  //   std::copy(this->sweep_data.data(), this->sweep_data.data() + len, in);
 
-    this->sweep_data.clear();
+  //   this->sweep_data.clear();
 
-    lk.unlock();
-    cout << "processFFT copied data, released lock." << endl;
-    this->cv_sweep_data.notify_one();
+  //   lk.unlock();
+  //   cout << "processFFT copied data, released lock." << endl;
+  //   this->cv_sweep_data.notify_one();
 
-    p = fftw_plan_dft_r2c_1d(len, in, out, FFTW_ESTIMATE);
+  //   p = fftw_plan_dft_r2c_1d(len, in, out, FFTW_ESTIMATE);
 
-    fftw_execute(p);
+  //   fftw_execute(p);
 
-    ofstream fd;
-    fd.open("pim.csv");
+  //   ofstream fd;
+  //   fd.open("pim.csv");
 
-    for(uint32_t i = 1; i < (len/2)-1; i++) { // Compute magnitude data and setting output bins, we don't need extrems
-      magnitude_plot[i-1][0] = (i * ADC_SAMPLING_RATE_S / len);
-      // magnitude_plot[i-1][0] = (double)((double)i / (double)(len / 2)) * (ADC_SAMPLING_RATE_S / 2);
-      magnitude_plot[i-1][1] = sqrt(out[i][0]*out[i][0] + out[i][1]*out[i][1]);
-      fd << to_string((int)magnitude_plot[i-1][0]) << ';' << to_string((int)magnitude_plot[i-1][1]) << endl;
-    }
+  //   for(uint32_t i = 1; i < (len/2)-1; i++) { // Compute magnitude data and setting output bins, we don't need extrems
+  //     magnitude_plot[i-1][0] = (i * ADC_SAMPLING_RATE_S / len);
+  //     // magnitude_plot[i-1][0] = (double)((double)i / (double)(len / 2)) * (ADC_SAMPLING_RATE_S / 2);
+  //     magnitude_plot[i-1][1] = sqrt(out[i][0]*out[i][0] + out[i][1]*out[i][1]);
+  //     fd << to_string((int)magnitude_plot[i-1][0]) << ';' << to_string((int)magnitude_plot[i-1][1]) << endl;
+  //   }
 
-    fftw_free(in);
-    fftw_free(out);
-  } while (1);
+  //   fftw_free(in);
+  //   fftw_free(out);
+  // } while (1);
 
-  fftw_destroy_plan(p);
+  // fftw_destroy_plan(p);
 }
 
 void GPR::windowing(int32_t *(&data), unsigned int len, unsigned int method) {

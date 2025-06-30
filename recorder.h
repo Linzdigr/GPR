@@ -41,5 +41,6 @@ class Recorder {
     void saveToWaveFile(const char *filename, uint32_t size, int32_t *data);
     static WaveHeader* genericWAVHeader(uint32_t sample_rate, uint16_t bit_depth, uint16_t channels);
     static int writeWAVHeader(int fd, WaveHeader *hdr);
+    static uint16_t formatToBits(snd_pcm_format_t fmt);
     ~Recorder();
 };
