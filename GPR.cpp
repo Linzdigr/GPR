@@ -122,7 +122,7 @@ void GPR::record() {
       std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
 
-    rec->resume();
+    rec->start();
 
     do {
       if(this->relevant_time) { // Fetch data phase
@@ -131,7 +131,7 @@ void GPR::record() {
         this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
         delete []bloc_data;
       } else { // Full data set is available
-        rec->pause();
+        rec->stop();
         cout << "record: data set is ready to be read. Unlocking the current state. Have lock : " << lksd.owns_lock() << endl;
         /* Dropping unusable frames */
 

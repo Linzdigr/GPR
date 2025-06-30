@@ -90,35 +90,22 @@ Recorder::Recorder(const char *device_name, unsigned int _rate, snd_pcm_format_t
   snd_pcm_hw_params_free(this->hw_params);
 
   cout << "hw_params freed" << endl;
-	
-  if((err = snd_pcm_prepare(this->device)) < 0) {
-    fprintf(stderr, "cannot prepare audio interface for use (%s)\n",
-             snd_strerror(err));
-    throw string("cannot prepare audio interface for use");
-  }
 
   this->buffer = (int32_t *)malloc(this->buffer_frames * (snd_pcm_format_width(this->format) / 8));
 
   cout << "Recorder capture device ready" << endl;
 }
 
-void Recorder::pause() {
-  if(snd_pcm_hw_params_can_pause(this->hw_params)) {
-    snd_pcm_pause(this->device, 1);  // pause
-  } else {
-    cout << "Pause not supported by this device." << endl;
+void Recorder::stop() {
+  if(snd_pcm_drop(this->device)) {
+    cout << "ERROR: snd_pcm_drop failed !" << endl;
   }
 }
 
-void Recorder::resume() {
-  if(snd_pcm_state(this->device) != SND_PCM_STATE_PAUSED) {
-    return;
-  }
-  
-  if(snd_pcm_hw_params_can_pause(this->hw_params)) {
-    snd_pcm_pause(this->device, 0);  // resume
-  } else {
-    snd_pcm_prepare(this->device);   // just re-prepare if pause not supported
+void Recorder::start() {
+  if((err = snd_pcm_prepare(this->device)) < 0) {
+    fprintf(stderr, "cannot prepare audio interface for use (%s)\n", snd_strerror(err));
+    throw string("cannot prepare audio interface for use");
   }
 }
 
