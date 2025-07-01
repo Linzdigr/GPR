@@ -5,7 +5,12 @@
 #include <unistd.h>
 #include <cstdint>
 #include <math.h>
+#include <algorithm>
 #include <fftw3.h>
+
+// Debug
+#include <iomanip>
+#include <limits>
 
 using namespace std;
 
@@ -13,9 +18,14 @@ using namespace std;
 #include "MCP4921/MCP4921.h"
 #include "waveforms.h"
 #include "recorder.h"
-#include "stb_image_write.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+template<typename T>
+T clamp(T v, T lo, T hi) {
+    return (v < lo) ? lo : (v > hi) ? hi : v;
+}
 
 #define SECOND_US               1e6F
 
@@ -34,11 +44,9 @@ GPR::GPR(float freq_low, float freq_high, float tsweep_us)
 
   thread thread_dac(&GPR::waveformGenerator, this);
   thread thread_record(&GPR::record, this);
-  thread thread_fft(&GPR::processFFT, this);
 
   thread_dac.join();
   thread_record.join();
-  thread_fft.join();
 }
 
 GPR* GPR::getInstance(const float freq_start, const float freq_stop, const float tsweep_us) {
@@ -92,7 +100,7 @@ void GPR::waveformGenerator() {
       this->relevant_time = (i >= start_i && i <= stop_i);
 
       dac->setRawValue(wf[i]);
-      std::this_thread::sleep_for(std::chrono::nanoseconds((int)(step_hold_us*1000)));
+      // std::this_thread::sleep_for(std::chrono::nanoseconds((int)(step_hold_us*1000)));
     }
   } while(1);
 }
@@ -108,6 +116,8 @@ void GPR::record() {
     cerr << e << endl;
     exit(-1);
   }
+
+  uint32_t sweeps_done = 0;
 
   do {
     lksd.lock();
@@ -127,18 +137,31 @@ void GPR::record() {
     rec->start();
 
     do {
-      if(this->relevant_time) { // Fetch data phase
+      if(this->relevant_time) { // Sweeping
         unsigned int len = rec->captureBloc(bloc_data);
-        GPR::windowing(bloc_data, len, HANN_FUNCTION);
         this->sweep_data.insert(this->sweep_data.end(), bloc_data, bloc_data + len);
         delete []bloc_data;
-      } else { // Full data set is available
+      } else { // End of sweep
+        cout << "record: data set is ready to be read." << endl;
         rec->stop();
-        cout << "record: data set is ready to be read. Unlocking the current state. Have lock : " << lksd.owns_lock() << endl;
+        sweeps_done++;
+
+        GPR::windowing(this->sweep_data.data(), this->sweep_data.size(), HANN_FUNCTION);
+        this->sweep_data_filtered = this->sweep_data;
+        this->sweep_data.clear();
+
+        // rec->saveToWaveFile("mi.wav", sizeof(int32_t) * this->sweep_data.size(), this->sweep_data.data());
+        if(sweeps_done >= 10) {
+          cout << "Generating FFT image" << endl;
+          // GPR::generateSpectrogramImage("spectrogram.png", this->sweep_data_filtered.data(), this->sweep_data_filtered.size(), ADC_SAMPLING_RATE_S, 2048, 512);
+          this->updateSpectrogramImage("spectrogram.png", this->sweep_data.data(), this->sweep_data.size());
+          cout << "Done" << endl;
+          sweeps_done = 0;
+        }
+        
+        cout << "record: Unlocking." << endl;
         lksd.unlock();
         this->cv_sweep_data.notify_one();
-
-        rec->saveToWaveFile("mi.wav", sizeof(int32_t) * this->sweep_data.size(), this->sweep_data.data());
 
         break;
       }
@@ -148,62 +171,136 @@ void GPR::record() {
   rec->cleanup();
 }
 
-void GPR::generateSpectrogramImage(const char* output_file, int32_t* data, uint32_t num_samples, uint32_t sample_rate, uint32_t window_size, uint32_t hop_size) {
-  const int fft_size = window_size;
-  const int num_frames = (num_samples - window_size) / hop_size + 1;
-  const int height = fft_size / 2;
-  const int width = num_frames;
-
-  // Allocate image buffer (grayscale)
-  std::vector<uint8_t> image(height * width, 0);
-
-  std::vector<double> window(fft_size);
-  for (int i = 0; i < fft_size; ++i) {
-    window[i] = 0.5 * (1 - cos(2 * M_PI * i / (fft_size - 1)));  // Hann window
+void GPR::generateSpectrogramImageInterlaced(const char* output_file, int32_t* data, uint32_t num_samples, uint32_t sample_rate, uint32_t window_size, uint32_t hop_size) {
+  if(num_samples < window_size) {
+    std::cerr << "Not enough samples for spectrogram." << std::endl;
+    return;
   }
 
-  fftw_plan plan;
-  double* in = (double*)fftw_malloc(sizeof(double) * fft_size);
-  fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (fft_size / 2 + 1));
-  plan = fftw_plan_dft_r2c_1d(fft_size, in, out, FFTW_ESTIMATE);
+  const uint32_t num_frames = (num_samples - window_size) / hop_size + 1;
+  const uint32_t fft_bins = window_size / 2;
+  const uint32_t width = num_frames;
+  const uint32_t height = fft_bins;
 
-  float max_mag = 1e-6;
+  std::vector<uint8_t> image(width * height);
 
-  // STFT loop
-  for (int frame = 0; frame < num_frames; ++frame) {
-    int offset = frame * hop_size;
+  double* in = (double*)fftw_malloc(sizeof(double) * window_size);
+  fftw_complex* out = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * (fft_bins + 1));
+  fftw_plan plan = fftw_plan_dft_r2c_1d(window_size, in, out, FFTW_ESTIMATE);
 
-    // Copy and window data
-    for (int i = 0; i < fft_size; ++i) {
-      int32_t sample = data[offset + i];
-      in[i] = (double)sample * window[i];
+  std::vector<float> magnitudes(width * height);
+
+  float mag_min = 1e9, mag_max = -1e9;
+
+  for (uint32_t frame = 0; frame < num_frames; ++frame) {
+    uint32_t offset = frame * hop_size;
+
+    for (uint32_t i = 0; i < window_size; ++i) {
+      in[i] = (double)data[offset + i];
     }
 
     fftw_execute(plan);
 
-    // Compute magnitude
-    for (int k = 0; k < height; ++k) {
-      double real = out[k][0];
-      double imag = out[k][1];
-      double mag = sqrt(real * real + imag * imag);
-      mag = 20 * log10(mag + 1e-6);  // dB scale
-      max_mag = std::max(max_mag, (float)mag);
-      image[(height - 1 - k) * width + frame] = (uint8_t)std::clamp((mag + 60.0) * 4.25, 0.0, 255.0);  // Normalize from -60dB to 0dB
+    for (uint32_t k = 0; k < fft_bins; ++k) {
+      double re = out[k][0];
+      double im = out[k][1];
+      float mag_db = 20.0f * log10(std::sqrt(re * re + im * im) + 1e-10);
+      magnitudes[frame * fft_bins + k] = mag_db;
+      if (mag_db < mag_min) mag_min = mag_db;
+      if (mag_db > mag_max) mag_max = mag_db;
     }
   }
+
+  std::cout << "Spectrogram dB range: [" << mag_min << ", " << mag_max << "]" << std::endl;
+
+  float mag_range = mag_max - mag_min + 1e-6f;
+  for (uint32_t frame = 0; frame < num_frames; ++frame) {
+    for (uint32_t bin = 0; bin < fft_bins; ++bin) {
+      float norm = (magnitudes[frame * fft_bins + bin] - mag_min) / mag_range;
+      uint8_t pixel = static_cast<uint8_t>(clamp(norm * 255.0f, 0.0f, 255.0f));
+      image[(fft_bins - 1 - bin) * width + frame] = pixel;
+    }
+  }
+
+  stbi_write_png(output_file, width, height, 1, image.data(), width);
 
   fftw_destroy_plan(plan);
   fftw_free(in);
   fftw_free(out);
+}
 
-  // Write grayscale PNG
-  stbi_write_png(output_file, width, height, 1, image.data(), width);
+void GPR::updateSpectrogramImage(const char* output_file, int32_t* data, uint32_t num_samples) {
+  if(num_samples != this->window_size) {
+    std::cerr << "Expected " << this->window_size << " samples, got " << num_samples << std::endl;
+    return;
+  }
+
+  // Allocate input buffer
+  double* in = static_cast<double*>(fftw_malloc(sizeof(double) * window_size));
+  fftw_complex* out = static_cast<fftw_complex*>(fftw_malloc(sizeof(fftw_complex) * (window_size / 2 + 1)));
+
+  // Convert data to double
+  for(uint32_t i = 0; i < window_size; ++i)
+    in[i] = static_cast<double>(data[i]);
+
+  // Apply window function (e.g. Hann)
+  for(uint32_t i = 0; i < window_size; ++i)
+    in[i] *= 0.5 * (1 - cos(2 * M_PI * i / (window_size - 1)));
+
+  // FFT
+  fftw_plan plan = fftw_plan_dft_r2c_1d(window_size, in, out, FFTW_ESTIMATE);
+  fftw_execute(plan);
+  fftw_destroy_plan(plan);
+
+  // Compute magnitude in dB
+  uint32_t bins = window_size / 2 - 1;
+  std::vector<float> magnitudes(bins);
+  float max_dB = -1000.0f;
+
+  for(uint32_t i = 1; i <= bins; ++i) {
+    double re = out[i][0];
+    double im = out[i][1];
+    double mag = sqrt(re * re + im * im);
+    float dB = 20.0f * log10(mag + 1e-10);
+    magnitudes[i - 1] = dB;
+    if (dB > max_dB) max_dB = dB;
+  }
+
+  fftw_free(in);
+  fftw_free(out);
+
+  // Normalize and convert to 8-bit grayscale column
+  std::vector<uint8_t> column(bins);
+  for (uint32_t i = 0; i < bins; ++i) {
+    float norm = (magnitudes[i] - (max_dB - 60.0f)) / 60.0f; // scale to last 60 dB
+    norm = std::clamp(norm, 0.0f, 1.0f);
+    column[bins - i - 1] = static_cast<uint8_t>(norm * 255); // vertical flip
+  }
+
+  // Store column in buffer
+  if(this->spectrogram_height == 0)
+    this->spectrogram_height = bins;
+  if(this->spectrogram_buffer.empty())
+    this->spectrogram_buffer.reserve(bins * 1000); // prealloc for 1000 columns
+
+  // Append column to buffer
+  for(uint32_t row = 0; row < bins; ++row)
+    this->spectrogram_buffer.push_back(column[row]);
+
+  this->spectrogram_width += 1;
+
+  // Save full image
+  stbi_write_png(output_file,
+                  this->spectrogram_width,
+                  this->spectrogram_height,
+                  1,  // grayscale
+                  this->spectrogram_buffer.data(),
+                  this->spectrogram_width);
 }
 
 int x = 0;
 
-void GPR::processFFT() {
-  GPR::generateSpectrogramImage("spectrogram.png", this->sweep_data.data(), this->sweep_data.size(), this->rate, 1024, 512);
+void GPR::processFFT() {;
   // fftw_plan p;
 
   // while(!this->recorder_ready);
@@ -254,7 +351,7 @@ void GPR::processFFT() {
   // fftw_destroy_plan(p);
 }
 
-void GPR::windowing(int32_t *(&data), unsigned int len, unsigned int method) {
+void GPR::windowing(int32_t *data, unsigned int len, unsigned int method) {
   if(method == HANN_FUNCTION) {
     for(unsigned int i = 0; i < len; i++) {
       double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (len - 1)));
